@@ -23,6 +23,8 @@ Stocket Inventory is a **pnpm monorepo** containing:
 - [Testing](testing.md) — Vitest + Playwright patterns
 - [API Development](api-development.md) — Effect.ts patterns
 - [Frontend Development](frontend-development.md) — TanStack Start patterns
+- [Recommended Improvements](recommended-improvements.md) — Suggested architectural and tooling upgrades
+- [Effect Backend Migration](effect-backend-migration.md) — Plan for pivoting the backend from NestJS to Effect
 - [CI/CD](ci-cd.md) — GitHub Actions workflows
 
 ## Development Workflow

@@ -82,6 +82,7 @@ plugins:
             Testing: Tests
             API Development: Développement API
             Frontend Development: Développement Frontend
+            Recommended Improvements: Ameliorations recommandees
             CI/CD: CI/CD
             Contributing: Contribuer
             Guidelines: Directives
@@ -163,6 +164,8 @@ nav:
       - Testing: development/testing.md
       - API Development: development/api-development.md
       - Frontend Development: development/frontend-development.md
+      - Recommended Improvements: development/recommended-improvements.md
+      - Effect Backend Migration: development/effect-backend-migration.md
       - CI/CD: development/ci-cd.md
   - Contributing:
       - contributing/index.md
