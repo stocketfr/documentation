@@ -1,208 +1,161 @@
 # CLI Commands
 
-Reference of all available command line commands for Stocket Inventory.
+The checkout contains independent repositories. Run each command from the repository named in its heading. The generated root pnpm workspace is useful for local navigation, but it is not the release boundary.
 
-## Package Manager
-
-All commands use pnpm. Run from the repository root or use the `--filter` flag.
-
-## Backend Commands
-
-Use `pnpm --filter @stocket/api <command>` or `cd backend && pnpm <command>`.
-
-### Development
+## Workspace controller (`meta`)
 
 ```bash
-# Start development server (Bun)
-pnpm --filter @stocket/api start
-
-# Build the application (bun build)
-pnpm --filter @stocket/api build
-
-# Start production server
-pnpm --filter @stocket/api start:prod
-```
-
-### Testing
-
-```bash
-# Run unit tests (Vitest)
-pnpm --filter @stocket/api test
-
-# Run tests in watch mode
-pnpm --filter @stocket/api test:watch
-
-# Run tests with coverage
-pnpm --filter @stocket/api test:cov
-
-# Run integration tests
-pnpm --filter @stocket/api test:integration
-```
-
-### Code Quality
-
-```bash
-# Lint code (oxlint)
-pnpm --filter @stocket/api lint
-
-# Lint with auto-fix
-pnpm --filter @stocket/api lint:fix
-
-# Format code with Prettier
-pnpm --filter @stocket/api format
-
-# TypeScript type check
-pnpm --filter @stocket/api type-check
-```
-
-### Database
-
-```bash
-# Seed the database with sample data
-pnpm --filter @stocket/api seed
-
-# Import from Sortly
-pnpm --filter @stocket/api import:sortly
-```
-
-!!! note "Migrations"
-    Database schema is managed via Drizzle ORM. Schema changes are defined in `backend/src/effect/platform/db/schema.ts` and applied automatically on startup in development.
-
-## Frontend Commands
-
-Use `pnpm --filter @stocket/web <command>` or `cd frontend && pnpm <command>`.
-
-### Development
-
-```bash
-# Start development server (port 3000)
-pnpm --filter @stocket/web dev
-
-# Build for production
-pnpm --filter @stocket/web build
-
-# Start production server
-pnpm --filter @stocket/web start
-```
-
-### Code Quality
-
-```bash
-# Lint code
-pnpm --filter @stocket/web lint
-
-# Lint and fix
-pnpm --filter @stocket/web lint:fix
-
-# TypeScript type check
-pnpm --filter @stocket/web type-check
-
-# Run all validations (type-check + lint + format check)
-pnpm --filter @stocket/web validate
-
-# Prettier write + ESLint fix
-pnpm --filter @stocket/web check
-```
-
-### Testing
-
-```bash
-# Run Playwright E2E tests
-pnpm --filter @stocket/web test:e2e
-
-# Playwright UI mode
-pnpm --filter @stocket/web test:e2e:ui
-
-# Headed browser tests
-pnpm --filter @stocket/web test:e2e:headed
-```
-
-## Shared Types
-
-```bash
-# Generate barrel files
-pnpm --filter @stocket/types barrels
-
-# Build shared types
-pnpm --filter @stocket/types build
-```
-
-## Meta Workspace Commands
-
-Run from the `meta/` directory:
-
-```bash
-# Sync repos + install dependencies
+# Clone/update managed repositories, create root links, install, and build packages
 ./scripts/bootstrap
 
-# Run backend + frontend dev servers
+# Start PostgreSQL, MinIO, backend API, and frontend
 ./scripts/dev
 
-# Also start Docker services (PostgreSQL, etc.)
-./scripts/dev --with-docker
+# Also include the desktop shell or documentation watcher
+./scripts/dev --include-desktop
+./scripts/dev --include-docs
 
-# Sync repos from repos.yaml
+# Repository synchronization only
 ./scripts/clone-or-update
-
-# Alternative: use workspace.mjs directly
-node scripts/workspace.mjs sync
-node scripts/workspace.mjs bootstrap
-node scripts/workspace.mjs dev [--include-desktop] [--include-docs] [--with-docker]
 ```
 
-## Docker Compose
+The current workspace accepts only `--include-desktop` and `--include-docs`. Docker-backed PostgreSQL and MinIO are attempted automatically when Docker is available; `--with-docker` is an obsolete flag.
 
-Start development services (PostgreSQL):
+The standard workspace process does not start the background task worker. Start it separately from `backend` for Smart Import jobs.
+
+## Backend (`backend`)
 
 ```bash
-docker compose -f meta/docker-compose.yml up -d
+pnpm start                   # API through Infisical and tsx
+pnpm start:worker            # background task worker
+pnpm start:workspace         # API with local workspace service overrides
+pnpm build                   # bundle API and worker for Node 22
+pnpm start:prod              # run built API
+pnpm start:prod:worker       # run built worker
+pnpm start:prod:infisical    # run built API through the configured Infisical launcher
+
+pnpm type-check
+pnpm lint
+pnpm lint:fix
+pnpm format
+
+pnpm test
+pnpm test:watch
+pnpm test:cov
+pnpm test:integration
+pnpm test:mutation:pure
+pnpm test:duplicates
 ```
 
-## Just Commands
-
-Both backend and frontend have a `justfile`. Requires the [`just`](https://github.com/casey/just) command runner.
+Data and operations:
 
 ```bash
-# Install dependencies
-just bootstrap
-
-# Export env vars with Infisical CLI
-just env
-
-# Run dev server
-just dev
-
-# Build for production
-just build
-
-# Run tests
-just test
+pnpm drizzle -- <drizzle-kit arguments>
+pnpm tenant:seed:workspace
+IMPORT_USER_ID=<user-uuid> pnpm import:products <normalized-products.csv>
 ```
 
-!!!tip "Infisical CLI"
-    The `just env` command runs `infisical export --env=dev --format=dotenv > .env` to generate `.env` files from templates using Infisical CLI.
+`tenant:seed:workspace` is destructive for the selected tenant's demo dataset. Target an existing tenant with exactly one of `TENANT_ADMIN_TENANT_SLUG=<slug>` or `TENANT_ADMIN_TENANT_ID=<uuid>`; `TENANT_ADMIN_TENANT_HOSTNAME` can replace its primary hostname. With no target, the script selects the only tenant, prompts when several exist, or creates the default tenant when none exist. Inspect the target before running it outside an expendable local database.
 
-## Database Commands
+`tenant-admin:seed:workspace` remains as a compatibility alias; prefer `tenant:seed:workspace`.
 
-With PostgreSQL running:
+`superadmin:hash-password` reads a password from stdin and prints its Better Auth hash. Feed it from a hidden prompt provided by your shell; never place a literal password in command history. Seeding is a separate explicit script operation, normally through Infisical:
 
 ```bash
-# Connect to database
-psql -h localhost -p 5432 -U postgres -d stocket_inventory
-
-# Check database status
-pg_isready -h localhost -p 5432
+infisical run --env=dev -- pnpm exec tsx src/scripts/seed-superadmin.ts
 ```
 
-## Useful Combinations
+Configure the `SUPERADMIN_*` values first. This CLI invocation is separate; API startup calls the same seed function only when its migration sequence runs and data migrations `0000`/`0001` are pending. Production skips that sequence unless `RUN_BETTER_AUTH_MIGRATIONS=true`.
+
+The CLI importer accepts one already-normalized product CSV. `IMPORT_USER_ID` is required for attribution; `IMPORT_TENANT_ID`, `IMPORT_TENANT_NAME`, and `IMPORT_TENANT_SLUG` can override its tenant request context. Sortly recognition and review belong to the web Smart Import flow, not this CLI.
+
+## Frontend (`frontend`)
 
 ```bash
-# Full rebuild
-pnpm install && pnpm build
+pnpm dev
+pnpm build
+pnpm build:infisical         # build through the configured Infisical launcher
+pnpm start                   # run the built SSR server
 
-# Pre-commit check
-pnpm lint && pnpm test && pnpm build
+pnpm validate                # type-check + lint + format check
+pnpm type-check
+pnpm lint
+pnpm lint:fix
+pnpm format:check
+pnpm check                   # rewrite formatting and apply lint fixes
 
-# Update shared types after backend changes
-pnpm --filter @stocket/types barrels && pnpm --filter @stocket/types build
+pnpm test:unit
+pnpm test:unit:watch
+pnpm test:e2e
+pnpm test:e2e:ui
+pnpm test:e2e:headed
 ```
+
+## Shared packages (`packages`)
+
+```bash
+pnpm build
+pnpm --filter @stocketfr/types barrels
+pnpm --filter @stocketfr/types build
+pnpm --filter @stocketfr/emails test
+
+pnpm changeset
+pnpm version:packages
+pnpm publish:prepare
+pnpm release
+```
+
+Changesets drive release pull requests and publication to GitHub Packages. Normal publishable work adds a changeset; eligible same-repository pull requests publish immutable snapshots automatically. `version:packages` mutates package versions/changelogs and `release` publishes externally, so they are maintainer/CI operations rather than routine local checks.
+
+## Remote desktop (`remote-desktop`)
+
+```bash
+pnpm dev
+pnpm build
+pnpm test
+pnpm lint
+```
+
+The Tauri release path is experimental and currently needs reconciliation with the SSR frontend output before it can be treated as a supported release command.
+
+## Documentation (`documentation`)
+
+```bash
+node scripts/audit-docs.mjs
+mkdocs serve
+mkdocs build --strict
+```
+
+Use the Python 3.12 virtual-environment setup in the repository README. The
+current Nix shell does not reliably provide `mkdocs-static-i18n`, so it is not
+the reproducible verification path yet. Pull requests run the audit and strict
+build. Merges to `main` repeat the audit and deploy with `mkdocs gh-deploy` in
+GitHub Actions.
+
+## Infrastructure (`infrastructure`)
+
+Infrastructure is intentionally outside the generated application workspace. Use Terraform and Ansible from that repository:
+
+```bash
+terraform fmt -check -recursive
+terraform init
+terraform validate
+terraform plan
+
+ansible-galaxy collection install -r ansible/requirements.yml
+ansible-playbook -i localhost, -c local ansible/site.yml --syntax-check \
+  --extra-vars @ansible/syntax-check-vars.yml
+```
+
+Production apply/destroy operations require protected credentials and review. Do not improvise them from this reference; follow the infrastructure repository runbook and destroy guard.
+
+## GitHub Packages authentication
+
+Package installs require a GitHub token with `read:packages` in the user-level npm configuration:
+
+```ini
+@stocketfr:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Keep the token out of repository files and shell history.

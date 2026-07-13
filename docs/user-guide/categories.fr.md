@@ -1,80 +1,21 @@
-# Gestion des Catégories
+# Catégories
 
-Les catégories aident à organiser vos produits dans une structure hiérarchique pour une navigation et un filtrage faciles.
+Les catégories organisent les produits en hiérarchie. Le frontend actuel n'a pas de route Catégories distincte ; l'arbre est intégré dans **Inventaire → Produits**.
 
-## Hiérarchie des Catégories
+## Naviguer et filtrer
 
-Les catégories peuvent être imbriquées pour créer une structure arborescente :
+Sélectionnez un dossier pour filtrer les produits. Le résultat inclut les catégories descendantes. Parcourez une branche ou revenez au niveau racine pour tous les produits.
 
-```
-Fournitures de Cuisine
-├── Alimentation & Boissons
-│   ├── Produits Frais
-│   └── Produits Secs
-├── Ustensiles de Cuisine
-└── Couverts
+## Créer
 
-Salle des Machines
-├── Pièces Détachées
-├── Lubrifiants
-└── Outils
-```
+Depuis la page Produits, créez une catégorie racine ou une enfant de la catégorie sélectionnée.
 
-## Affichage des Catégories
+- Le **nom** est obligatoire et unique parmi les catégories sœurs.
+- La **description** est facultative.
+- Le **parent** est facultatif pour une catégorie racine.
 
-L'arborescence des catégories est affichée dans la barre latérale lors de la consultation des produits. Cliquez sur une catégorie pour :
+Le frontend ne permet actuellement que de lister et créer. Il n'expose ni renommage, ni réaffectation, ni suppression. Choisissez donc un nom et un parent stables.
 
-- Voir les produits de cette catégorie
-- Voir les produits de toutes les sous-catégories
-- Développer/réduire les catégories enfants
+La suppression existe au niveau API mais n'est pas un flux utilisateur documenté : des produits peuvent la bloquer et la suppression d'un parent pourrait orpheliner ses enfants dans le modèle actuel.
 
-## Création d'une Catégorie
-
-1. Accédez aux **Catégories** ou cliquez sur **Gérer les Catégories**
-2. Cliquez sur **Créer une Catégorie**
-3. Remplissez les champs :
-   - **Nom** - Nom de la catégorie (requis)
-   - **Description** - Description optionnelle
-   - **Catégorie Parente** - Sélectionnez pour créer une sous-catégorie
-4. Cliquez sur **Enregistrer**
-
-!!! tip "Noms des Catégories"
-    Utilisez des noms clairs et descriptifs. Les noms de catégories doivent être uniques au sein du même niveau parent.
-
-## Modification des Catégories
-
-1. Cliquez sur le bouton de modification d'une catégorie
-2. Modifiez le nom, la description ou le parent
-3. Cliquez sur **Enregistrer**
-
-!!! warning "Changement de Parents"
-    Déplacer une catégorie vers un nouveau parent déplacera également toutes ses sous-catégories. Le système empêche les références circulaires (une catégorie ne peut pas être son propre ancêtre).
-
-## Suppression des Catégories
-
-La suppression d'une catégorie est soumise aux contraintes suivantes :
-
-- **Si des produits existent dans la catégorie**, la suppression **échouera**. Vous devez réassigner ou supprimer tous les produits de la catégorie avant de la supprimer.
-- **Les sous-catégories** verront leur référence parente mise à null (elles deviennent des catégories de premier niveau).
-
-!!! danger "Suppression de Catégorie"
-    Vous ne pouvez pas supprimer une catégorie qui contient encore des produits. L'API renverra une erreur. Déplacez ou supprimez d'abord tous les produits de la catégorie, puis supprimez la catégorie.
-
-## Bonnes Pratiques
-
-### Organisation des Catégories
-
-1. **Gardez-le peu profond** - Visez 2-3 niveaux d'imbrication
-2. **Soyez cohérent** - Utilisez des modèles de nommage similaires
-3. **Planifiez à l'avance** - Considérez la croissance future
-
-### Exemple de Structure
-
-Pour un inventaire d'approvisionnement de yacht :
-
-- **Cuisine** - Fournitures de cuisine et de table
-- **Entretien** - Linge, produits de nettoyage
-- **Sécurité** - Équipements de sécurité, premiers secours
-- **Salle des Machines** - Fournitures techniques
-- **Commodités Invités** - Articles de toilette, articles de luxe
-- **Pont** - Équipements extérieurs
+La lecture de l'arbre exige `PRODUCTS.READ`, la création `PRODUCTS.WRITE`.

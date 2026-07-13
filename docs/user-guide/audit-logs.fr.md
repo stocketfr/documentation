@@ -1,103 +1,17 @@
-# Journaux d'Audit
+# Journaux d'audit
 
-Le journal d'audit suit toutes les modifications apportées au système, fournissant un historique complet pour la responsabilité et le dépannage.
+Ouvrez **Administration → Journaux d'audit** (`/audit-logs`) pour consulter les mutations tenant enregistrées. `AUDIT_LOGS.READ` est requis ; l'accès n'est pas figé sur le rôle Admin, même si celui-ci le reçoit par défaut.
 
-!!! warning "Permission Administrateur Requise"
-    La consultation des journaux d'audit nécessite la permission administrateur. Seuls les utilisateurs ayant le rôle administrateur peuvent accéder à la section des journaux d'audit.
+## Tableau actuel
 
-## Consultation des Journaux d'Audit
+Le tableau affiche action, type d'entité, ID tronqué, utilisateur/nom si disponible et horodatage. La page filtre actuellement par une action et un type. Elle n'expose pas les filtres utilisateur, date ou ID pourtant disponibles à un niveau inférieur.
 
-Accédez aux **Journaux d'Audit** pour voir l'historique complet des modifications.
+Le contrat de filtre comprend Création, Mise à jour, Suppression, Restauration, Ajout de photo, Changement de statut et Ajustement, ainsi que produits/catégories/fournisseurs/emplacements/zones/clients/inventaire/rôles/mouvements/commandes/lignes/photos. Toutes les combinaisons ne sont pas émises : utilisateurs, marque, photos, notifications, tâches et actions superadmin ne vont pas dans cet audit tenant ; superadmin possède un audit plateforme séparé.
 
-Chaque entrée de journal inclut :
+## Limites actuelles
 
-- **Horodatage** - Quand la modification a eu lieu
-- **Utilisateur** - Qui a effectué la modification
-- **Action** - Type d'action (Créer, Modifier, Supprimer, Restaurer)
-- **Type d'Entité** - Ce qui a été modifié (Produit, Catégorie, etc.)
-- **ID de l'Entité** - L'élément spécifique modifié
-- **Modifications** - Valeurs avant/après
+L'interface n'affiche ni diff avant/après, IP, agent utilisateur, contexte de requête ou tiroir de détail. Les écritures tenant actuelles fixent changements et agent utilisateur à null.
 
-## Filtrage des Journaux
+Les écritures d'audit sont actuellement des effets asynchrones au mieux, pas dans la même transaction que la mutation métier. Une modification réussie peut donc ne pas avoir de ligne d'audit si l'insertion séparée échoue. Pour les garanties forensiques ou de conformité, appuyez-vous aussi sur les sauvegardes et données métier.
 
-Filtrez les journaux d'audit par :
-
-- **Type d'Entité** - Produits, Catégories, Commandes, etc.
-- **Action** - Créer, Modifier, Supprimer, Restaurer
-- **Utilisateur** - Utilisateur spécifique
-- **Période** - Plage de dates
-- **ID de l'Entité** - Élément spécifique
-
-## Comprendre les Modifications
-
-Pour les actions de modification, le journal affiche :
-
-```json
-{
-  "before": {
-    "name": "Ancien Nom du Produit",
-    "price": 100
-  },
-  "after": {
-    "name": "Nouveau Nom du Produit",
-    "price": 150
-  }
-}
-```
-
-## Types d'Actions
-
-| Action | Description |
-|--------|-------------|
-| CREATE | Nouvel élément créé |
-| UPDATE | Élément existant modifié |
-| DELETE | Élément supprimé temporairement |
-| RESTORE | Élément supprimé restauré |
-| ADJUST_QUANTITY | Quantité d'inventaire modifiée |
-| ADD_PHOTO | Photo ajoutée à l'élément |
-| STATUS_CHANGE | Champ de statut modifié |
-
-## Types d'Entités
-
-| Entité | Description |
-|--------|-------------|
-| PRODUCT | Produits d'inventaire |
-| CATEGORY | Catégories de produits |
-| SUPPLIER | Fiches fournisseurs |
-| ORDER | Commandes clients |
-| ORDER_ITEM | Articles de commande |
-| INVENTORY | Quantités en stock |
-| LOCATION | Emplacements de stockage |
-| STOCK_MOVEMENT | Mouvements de stock entre emplacements |
-| PHOTO | Images de produits |
-| AREA | Zones au sein des emplacements |
-| CLIENT | Fiches clients |
-| ROLE | Rôles utilisateurs |
-
-## Informations de Contexte
-
-Chaque journal d'audit inclut le contexte :
-
-- **Adresse IP** - Origine de la requête
-- **User Agent** - Informations navigateur/client
-- **ID Utilisateur** - Utilisateur authentifié
-
-## Cas d'Utilisation
-
-### Dépannage
-
-1. Trouver quand un produit a été modifié pour la dernière fois
-2. Voir qui a changé un prix
-3. Suivre les ajustements d'inventaire
-
-### Conformité
-
-1. Démontrer le suivi des modifications
-2. Fournir une piste d'audit pour les auditeurs
-3. Répondre aux exigences réglementaires
-
-### Récupération
-
-1. Identifier les modifications accidentelles
-2. Comprendre ce qui a été changé
-3. Restaurer manuellement les valeurs précédentes si nécessaire
+Le comportement de suppression varie selon le module ; une action `Delete` ne signifie pas que l'entité est restaurable.

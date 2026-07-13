@@ -1,28 +1,27 @@
 # Reference
 
-Technical reference documentation for Stocket Inventory.
+Use this section when you need the exact runtime settings, repository commands, or a quick diagnosis.
 
-## Contents
+## Runtime reference
 
-- [Environment Variables](environment-variables.md) - All configuration options
-- [CLI Commands](cli-commands.md) - Available command line commands
-- [Troubleshooting](troubleshooting.md) - Common issues and solutions
+- [Environment variables](environment-variables.md) lists the backend, worker, web, storage, and test settings.
+- [CLI commands](cli-commands.md) lists commands by repository. Run them from the named repository unless stated otherwise.
+- [Troubleshooting](troubleshooting.md) covers the failures most often seen in the local workspace.
 
-## Quick Links
+## API and contracts
 
-### API Documentation
+Application routes are served below `/api/v1`; that prefix includes tenant, platform/superadmin, operational, and non-production test surfaces. Better Auth is below `/api/auth`. Swagger UI at `/docs` currently describes only health. Mounted backend routers are the runtime source of truth, and their matching `@stocketfr/types` schemas define payload contracts. Not every exported schema is mounted—for example, fulfillment remains a prototype.
 
-The API is documented via Swagger UI:
+Applications install the published packages through GitHub Packages:
 
-- **Local:** http://localhost:8080/api/docs
-- **OpenAPI JSON:** http://localhost:8080/api/docs-json
-
-### Shared Types
-
-Shared DTO interfaces/enums live in `packages/types`:
-
-```bash
-pnpm --filter @stocket/types build
+```json
+{
+  "dependencies": {
+    "@stocket/types": "npm:@stocketfr/types@1.8.0"
+  }
+}
 ```
 
-Types are authored in `packages/types/src/`.
+`@stocket/types` is the local consumer alias. Commands inside the packages repository must use the publisher name, for example `pnpm --filter @stocketfr/types build`.
+
+For the ownership and runtime boundary of every repository and module, see the [project and module map](../development/project-map.md).

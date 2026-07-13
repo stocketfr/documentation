@@ -1,10 +1,27 @@
-# Order Processing
+# Orders
 
-Track yacht provisioning orders through their complete lifecycle.
+Orders track a client's requested products and delivery workflow. **Operations → Orders** (`/orders`) requires both the tenant's `ORDERS` feature and the relevant permission.
 
-## Order Workflow
+## Browse
 
-Orders follow this lifecycle:
+Search order number or client company and filter by status. The table shows order number, client, status, item count, total, creation time, and available actions. There is no separate detail route, kanban, assignee workflow, or full change history in the current frontend.
+
+## Create
+
+A new order always starts as **Draft**. Provide:
+
+- a client;
+- delivery address;
+- at least one item with product, positive quantity, non-negative unit price, and optional notes;
+- optional deadline, yacht name, and special instructions.
+
+Selecting a product prefills its standard price when available. Selecting a client does not copy the client's default address or yacht. There is no “save as confirmed” option.
+
+## Edit and delete
+
+Draft and Confirmed orders can edit delivery address, deadline, yacht, and instructions. The current edit UI does not change the client or line items. Only Draft orders can be deleted.
+
+## Status workflow
 
 ```mermaid
 graph LR
@@ -30,67 +47,6 @@ graph LR
     I --> E
 ```
 
-### Order Statuses
+Status labels describe workflow only. The application does not currently provide mounted fulfillment endpoints or explicit picked/packed quantity controls, and status changes do not reserve or adjust inventory.
 
-| Status | Description |
-|--------|-------------|
-| Draft | Order is being prepared |
-| Confirmed | Order is confirmed and processing begins |
-| Sourcing | Items are being sourced from suppliers |
-| Picking | Items are being picked from inventory |
-| Packed | Items are packed and ready for shipping |
-| Shipped | Order is in transit |
-| Delivered | Order has been delivered |
-| Cancelled | Order was cancelled (reachable from Draft, Confirmed, Sourcing, Picking, Packed, On Hold) |
-| On Hold | Order is temporarily paused (reachable from Confirmed, Sourcing, Picking, Packed; can return to those statuses or be Cancelled) |
-
-### Order Fields
-
-| Field | Description |
-|-------|-------------|
-| Order Number | Unique order identifier |
-| Client | Linked client record |
-| Status | Current order status |
-| Delivery Deadline | Required delivery date |
-| Delivery Address | Shipping destination |
-| Yacht Name | Target yacht for provisioning |
-| Special Instructions | Additional delivery notes |
-| Total Amount | Computed order total |
-| Assigned To | User responsible for the order |
-| Created By | User who created the order |
-| Confirmed At | Timestamp when order was confirmed |
-| Shipped At | Timestamp when order was shipped |
-| Delivered At | Timestamp when order was delivered |
-| Kanban Task ID | Link to kanban board task |
-
-## Creating an Order
-
-1. Navigate to **Orders**
-2. Click **Create Order**
-3. Fill in order details:
-   - **Client** - Select a client from the client list
-   - **Delivery Address** - Shipping destination
-   - **Yacht Name** - Target yacht
-   - **Delivery Deadline** - Required delivery date
-   - **Special Instructions** - Any additional notes
-4. Add line items
-5. Save as draft or confirm
-
-## Managing Order Items
-
-Each order contains line items with:
-
-- Product reference
-- Quantity ordered
-- Unit price
-- Quantity picked
-- Quantity packed
-
-## Order History
-
-All order changes are tracked in the audit log:
-
-- Status changes
-- Item additions/removals
-- Quantity changes
-- Assignment changes
+Viewing needs `ORDERS.READ`; creation, editing, status changes, and deletion need `ORDERS.WRITE`.

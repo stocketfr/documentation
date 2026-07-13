@@ -1,154 +1,110 @@
 # Installation
 
-This guide covers setting up the Stocket Inventory development environment.
+This procedure creates a local multi-repository checkout and starts the
+platform, a tenant application, PostgreSQL, and MinIO.
 
-## Using Nix Flakes + Docker (Recommended)
+## 1. Configure GitHub Packages
 
-The project uses per-repo [Nix flakes](https://nixos.wiki/wiki/Flakes) for reproducible development environments and Docker Compose for services like PostgreSQL.
-
-### 1. Install Nix
+Create a classic GitHub token with `read:packages`. Export it as
+`GITHUB_PACKAGES_TOKEN` through a hidden shell prompt or secret manager—do not
+type the token into command history—then configure pnpm:
 
 ```bash
-sh <(curl -L https://nixos.org/nix/install) --daemon
+# GITHUB_PACKAGES_TOKEN must already be exported securely.
+pnpm config set --global @stocketfr:registry https://npm.pkg.github.com
+pnpm config set --global //npm.pkg.github.com/:_authToken "${GITHUB_PACKAGES_TOKEN}"
+unset GITHUB_PACKAGES_TOKEN
 ```
 
-Ensure flakes are enabled in your Nix configuration.
+## 2. Clone the Workspace Controller
 
-### 2. Clone the Workspace
+From an empty parent directory:
 
 ```bash
 git clone https://github.com/stocketfr/meta.git
-cd meta && ./scripts/bootstrap && cd ..
-```
-
-### 3. Bootstrap the Workspace
-
-```bash
 ./meta/scripts/bootstrap
 ```
 
-This will sync all repos and install dependencies.
+`meta/repos.yaml` clones the managed repositories beside `meta` and the
+bootstrap links the local root workspace configuration. The infrastructure
+repository is intentionally separate and is not cloned by this command.
 
-### 4. Enter a Nix Shell (per-repo)
+## 3. Authenticate to Infisical
 
-Each repo (backend, frontend, etc.) has its own `flake.nix`. Enter the shell for the repo you need:
-
-```bash
-cd backend && nix develop
-# or
-cd frontend && nix develop
-```
-
-This will provide:
-
-- Node.js 20+ and pnpm 10
-- All repo-specific tooling
-
-### 5. Start Development Services
-
-Start PostgreSQL and other services via Docker Compose:
+The backend and frontend scripts inject runtime values through Infisical:
 
 ```bash
-docker compose -f meta/docker-compose.yml up -d
+infisical login
 ```
 
-Or use the meta dev script to start everything (backend + frontend dev servers):
+The checked-in files are named `backend/env.template` and
+`frontend/env.template`. They document keys but are not meant to become the
+local source of truth. See [Configuration](configuration.md).
+
+## 4. Start the Stack
 
 ```bash
 ./meta/scripts/dev
 ```
 
-To also start Docker services automatically:
+The script starts PostgreSQL, MinIO and its local bucket, the Node.js Effect
+API, and the TanStack Start web process. Loggle is used when available;
+otherwise output is prefixed by process. The historical `--with-docker` flag is
+not required and has no current effect.
+
+!!! warning "Loggle users"
+    The current `meta/.loggle.toml` calls a missing frontend `dev:workspace`
+    script. Until it is fixed, [run the projects separately](../development/setup.md#run-projects-individually)
+    when Loggle is installed.
+
+For asynchronous imports, run the worker separately:
 
 ```bash
-./meta/scripts/dev --with-docker
+cd backend
+pnpm start:worker
 ```
 
-This starts:
+## 5. Seed a Local Tenant
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| PostgreSQL | localhost:5432 | Database |
-| Effect.ts API | http://localhost:8080 | Backend (Bun) |
-| TanStack Start Web | http://localhost:3000 | Frontend |
-
-### 6. Configure Environment Variables
-
-**Backend:**
+After the API has applied development migrations:
 
 ```bash
-cp backend/.env.template backend/.env
+cd backend
+pnpm tenant:seed:workspace
 ```
 
-Edit `backend/.env` with your configuration:
+With no target, this creates the default tenant only when none exist, selects
+the only tenant, or prompts when several exist. It creates/rotates
+`tenant-admin@stocket.fr` with password `admin1234` and replaces the selected
+tenant's demo data. Set `TENANT_ADMIN_TENANT_SLUG` or
+`TENANT_ADMIN_TENANT_ID` to target an existing tenant explicitly.
+
+!!! danger "Tenant data is replaced"
+    Do not run the workspace seed against a tenant whose data must be kept.
+
+## 6. Verify the Installation
+
+| Check | URL |
+|-------|-----|
+| API liveness | `http://localhost:8080/health-check/live` |
+| API readiness | `http://localhost:8080/health-check/ready` |
+| Partial Swagger UI | `http://localhost:8080/docs` |
+| Platform web host | `http://localhost:3000` |
+| Default tenant on a new database | `http://stocket.localhost:3000` |
+| MinIO console | `http://localhost:9001` |
+
+Swagger currently describes only the health group implemented with Effect
+`HttpApiBuilder`; it is not a complete endpoint catalog.
+
+## Optional Nix Shell
+
+Several repositories have their own flake. For example:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/stocket_inventory
-NODE_ENV=development
-PORT=8080
-CORS_ORIGIN=http://localhost:3000
-BETTER_AUTH_SECRET=<random 32+ byte string>
-BETTER_AUTH_URL=http://localhost:8080
-FRONTEND_URL=http://localhost:3000
+cd backend
+nix develop
 ```
 
-**Frontend:**
-
-```bash
-echo "VITE_API_BASE_URL=http://localhost:8080/api/v1" > frontend/.env
-```
-
-!!!tip "Infisical CLI"
-    Both backend and frontend have a `justfile` with a `env` task. If you use Infisical CLI, you can generate `.env` files automatically:
-    ```bash
-    cd backend && just env
-    cd frontend && just env
-    ```
-    This runs `infisical export --env=dev --format=dotenv > .env` to populate secrets from Infisical.
-
-## Manual Setup (Alternative)
-
-If you prefer not to use Nix:
-
-### Prerequisites
-
-- Node.js >= 20
-- pnpm >= 10
-- PostgreSQL 16
-- Python 3.12 (for docs)
-
-### Database Setup
-
-```bash
-createdb stocket_inventory
-```
-
-### Environment Variables
-
-Copy the environment template:
-
-```bash
-cp backend/.env.template backend/.env
-```
-
-Edit `backend/.env` with your configuration (see table above).
-
-### Start Services
-
-```bash
-# Terminal 1: API
-cd backend && pnpm start
-
-# Terminal 2: Web
-cd frontend && pnpm dev
-```
-
-## Verify Installation
-
-1. Open http://localhost:8080/api/docs - You should see Swagger UI
-2. Open http://localhost:3000 - You should see the login page
-
-## Next Steps
-
-- [Quick Start](quick-start.md) - Create your first products
-- [Configuration](configuration.md) - Learn about configuration options
+There is no root flake for the assembled workspace. For manual process startup,
+advanced credentials, and troubleshooting, see
+[Development Setup](../development/setup.md).

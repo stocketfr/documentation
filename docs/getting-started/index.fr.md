@@ -1,18 +1,24 @@
 # Démarrage
 
-Cette section vous aidera à installer et configurer Stocket Inventory.
+Stocket est une application d'inventaire multi-tenant composée de dépôts
+backend, frontend, packages et support indépendants. Le projet `meta` assemble
+le checkout local pris en charge.
 
 ## Prérequis
 
-Avant de commencer, assurez-vous d'avoir :
+- Node.js 22 et pnpm 10.28.0
+- Git et Docker Compose
+- identifiants GitHub Packages (`read:packages`)
+- accès Infisical pour les secrets d'exécution
+- Nix est optionnel ; plusieurs dépôts fournissent leur propre flake
 
-- Node.js >= 20
-- pnpm >= 10
-- Nix avec flakes activé (chaque dépôt possède son propre `flake.nix`)
-- Docker & Docker Compose (pour PostgreSQL et les autres services)
+## Parcours
 
-## Prochaines Étapes
+1. [Installation](installation.md) — s'authentifier, initialiser et démarrer
+2. [Démarrage rapide](quick-start.md) — créer un tenant de démo et parcourir le
+   vrai workflow produit, emplacement et inventaire
+3. [Configuration](configuration.md) — comprendre les frontières d'exécution et
+   trouver la référence complète des variables
 
-1. [Installation](installation.md) - Configurer l'environnement de développement
-2. [Démarrage rapide](quick-start.md) - Créer vos premiers produits
-3. [Configuration](configuration.md) - Configurer les variables d'environnement
+Les développeurs peuvent ensuite consulter la
+[carte des projets et modules](../development/project-map.md).

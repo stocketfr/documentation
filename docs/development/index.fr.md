@@ -1,52 +1,85 @@
 # Développement
 
-Cette section couvre tout ce dont vous avez besoin pour contribuer à la base de code Stocket Inventory.
+Stocket se développe dans un checkout coordonné de dépôts indépendants.
+Commencez par `meta`, qui clone les projets gérés et assemble le workspace pnpm
+local.
 
-## Aperçu
+## Pour commencer
 
-Stocket Inventory est un workspace multi-repo contenant :
+- [Carte des projets et modules](project-map.md) — propriétaires, modules,
+  routes frontend, packages et état des déploiements
+- [Architecture](architecture.md) — topologie, tenancy, couches et tâches durables
+- [Configuration de développement](setup.md) — bootstrap, services et identifiants
+- [Style de code](code-style.md) — TypeScript, Effect, React, Oxlint et formatage
+- [Tests](testing.md) — tests unitaires, intégration, full-stack et documentation
+- [Développement API](api-development.md) — modules backend et patterns HTTP
+- [Développement frontend](frontend-development.md) — TanStack Start, données,
+  permissions, routes et styles
+- [CI/CD](ci-cd.md) — workflows actuels et frontières de release
 
-- **backend/** - Backend Effect.ts (runtime Bun)
-- **frontend/** - Frontend TanStack Start
-- **packages/** - Types partagés, configs
-- **meta/** - Scripts d'orchestration, Docker Compose
+## Propriété des changements
 
-## Liens Rapides
+| Changement | Dépôt |
+|------------|-------|
+| API, base, worker, adaptateur auth | `backend` |
+| Routes web, UI, serveur SSR, client navigateur | `frontend` |
+| DTO/schéma inter-dépôts ou modèle d'e-mail | `packages` |
+| Checkout, bootstrap, services locaux | `meta` |
+| Terraform, Ansible, opérations de l'hôte | `infrastructure` |
+| Shell natif | `remote-desktop` |
+| Documentation publique | `documentation` |
+| Site marketing | `landing` |
 
-- [Architecture](architecture.md) - Conception du système et stack technique
-- [Configuration](setup.md) - Configuration de l'environnement de développement
-- [Style de Code](code-style.md) - ESLint, Prettier et conventions
-- [Tests](testing.md) - Patterns de tests Vitest
-- [Développement API](api-development.md) - Patterns Effect.ts
-- [Développement Frontend](frontend-development.md) - Patterns TanStack Start
-- [CI/CD](ci-cd.md) - Workflows GitHub Actions
+Une fonctionnalité peut nécessiter plusieurs pull requests coordonnées. Les
+contrats partagés passent par le workflow snapshot/release stable avant la mise
+à jour des versions épinglées par les consommateurs.
 
-## Flux de Travail de Développement
+## Workflow local courant
 
-1. **Démarrer l'environnement**
+```bash
+# Depuis le dossier qui contiendra tous les dépôts
+git clone https://github.com/stocketfr/meta.git
+./meta/scripts/bootstrap
 
-    ```bash
-    # Démarrer les services (PostgreSQL, etc.)
-    cd meta && docker compose up -d
+# Démarrer PostgreSQL, MinIO, l'API et le web
+./meta/scripts/dev
+```
 
-    # Entrer dans le shell de développement (Nix flakes par repo)
-    cd backend && nix develop
-    cd frontend && nix develop
-    ```
+Le script choisit Loggle s'il est installé, sinon son runner direct. Le graphe
+Loggle commité appelle actuellement le script frontend `dev:workspace` absent :
+utilisez le [lancement séparé](setup.md#lancer-les-projets-separement) jusqu'à
+correction. `--include-desktop`/`--include-docs` passent par le runner direct et
+ajoutent ces processus. PostgreSQL et MinIO sont tentés automatiquement ;
+`--with-docker` n'est pas un mode actuel.
 
-2. **Effectuer les modifications** dans la base de code
+Pour un changement ciblé, utilisez les scripts du dépôt propriétaire :
 
-3. **Mettre à jour les types partagés** (si les DTO ont changé)
+```bash
+cd backend
+pnpm type-check
+pnpm lint
+pnpm test
+```
 
-    ```bash
-    pnpm --filter @stocket/types build
-    ```
+Les filtres racine restent disponibles après bootstrap, par exemple
+`pnpm --filter @stocket/api type-check`, mais les commandes locales reflètent
+le plus directement la CI de chaque dépôt.
 
-4. **Exécuter les tests et le lint**
+## Changements de contrats inter-dépôts
 
-    ```bash
-    pnpm test
-    pnpm lint
-    ```
+1. Modifier `packages/<package>` et ajouter un Changeset.
+2. Utiliser le snapshot de la PR dans les branches backend/frontend coordonnées.
+3. Fusionner le changement et la PR de version Changesets.
+4. Mettre à jour la version publiée dans chaque consommateur.
+5. Exécuter les vérifications consommateur et le gate Playwright full-stack si
+   le contrat ou le comportement API change.
 
-5. **Soumettre une pull request**
+Le package publié s'appelle `@stocketfr/types`. Le code applicatif l'importe
+via l'alias `@stocket/types` ; cet alias ne doit pas servir de filtre pnpm.
+
+## Avant une pull request
+
+Exécutez les plus petites vérifications prouvant le changement, puis le lint et
+le typecheck du dépôt. Ajoutez une couverture d'intégration ou E2E pour les
+comportements traversant la base, HTTP ou le navigateur. Mettez à jour ensemble
+les documentations anglaise et française lorsqu'un comportement public change.

@@ -1,154 +1,106 @@
 # Installation
 
-Ce guide couvre la configuration de l'environnement de développement Stocket Inventory.
+Cette procédure crée un checkout multi-dépôts local et démarre la plateforme,
+une application tenant, PostgreSQL et MinIO.
 
-## Utilisation de Nix Flakes + Docker (Recommandé)
+## 1. Configurer GitHub Packages
 
-Le projet utilise des [Nix flakes](https://nixos.wiki/wiki/Flakes) par dépôt pour des environnements de développement reproductibles et Docker Compose pour les services comme PostgreSQL.
-
-### 1. Installer Nix
+Créez un token GitHub classique avec `read:packages`. Exportez-le comme
+`GITHUB_PACKAGES_TOKEN` via une invite masquée ou un gestionnaire de secrets —
+ne saisissez pas le token dans l'historique — puis configurez pnpm :
 
 ```bash
-sh <(curl -L https://nixos.org/nix/install) --daemon
+# GITHUB_PACKAGES_TOKEN doit déjà être exporté de manière sûre.
+pnpm config set --global @stocketfr:registry https://npm.pkg.github.com
+pnpm config set --global //npm.pkg.github.com/:_authToken "${GITHUB_PACKAGES_TOKEN}"
+unset GITHUB_PACKAGES_TOKEN
 ```
 
-Assurez-vous que les flakes sont activés dans votre configuration Nix.
+## 2. Cloner le contrôleur du workspace
 
-### 2. Cloner le Workspace
+Depuis un dossier parent vide :
 
 ```bash
 git clone https://github.com/stocketfr/meta.git
-cd meta && ./scripts/bootstrap && cd ..
-```
-
-### 3. Initialiser le Workspace
-
-```bash
 ./meta/scripts/bootstrap
 ```
 
-Ceci synchronise tous les dépôts et installe les dépendances.
+`meta/repos.yaml` clone les dépôts gérés à côté de `meta` et le bootstrap lie
+la configuration racine locale. Le dépôt infrastructure reste séparé.
 
-### 4. Entrer dans un Shell Nix (par dépôt)
-
-Chaque dépôt (backend, frontend, etc.) possède son propre `flake.nix`. Entrez dans le shell du dépôt souhaité :
-
-```bash
-cd backend && nix develop
-# ou
-cd frontend && nix develop
-```
-
-Ceci fournit :
-
-- Node.js 20+ et pnpm 10
-- Tous les outils spécifiques au dépôt
-
-### 5. Démarrer les Services de Développement
-
-Démarrez PostgreSQL et les autres services via Docker Compose :
+## 3. S'authentifier auprès d'Infisical
 
 ```bash
-docker compose -f meta/docker-compose.yml up -d
+infisical login
 ```
 
-Ou utilisez le script meta dev pour tout démarrer (serveurs de développement backend + frontend) :
+Les fichiers versionnés s'appellent `backend/env.template` et
+`frontend/env.template`. Ils documentent les clés sans devenir la source locale
+des secrets. Voir [Configuration](configuration.md).
+
+## 4. Démarrer la stack
 
 ```bash
 ./meta/scripts/dev
 ```
 
-Pour démarrer également les services Docker automatiquement :
+Le script démarre PostgreSQL, MinIO et son bucket local, l'API Effect Node.js et
+le processus web TanStack Start. Loggle est utilisé s'il est disponible. Le
+flag historique `--with-docker` n'est pas nécessaire et n'a pas d'effet actuel.
+
+!!! warning "Utilisateurs de Loggle"
+    Le `meta/.loggle.toml` actuel appelle un script frontend `dev:workspace`
+    absent. Jusqu'à sa correction, [lancez les projets séparément](../development/setup.md#lancer-les-projets-separement)
+    lorsque Loggle est installé.
+
+Pour les imports asynchrones, lancez le worker séparément :
 
 ```bash
-./meta/scripts/dev --with-docker
+cd backend
+pnpm start:worker
 ```
 
-Ceci démarre :
+## 5. Créer un tenant local
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| PostgreSQL | localhost:5432 | Base de données |
-| API Effect.ts | http://localhost:8080 | Backend (Bun) |
-| TanStack Start Web | http://localhost:3000 | Frontend |
-
-### 6. Configurer les Variables d'Environnement
-
-**Backend :**
+Après l'application des migrations de développement :
 
 ```bash
-cp backend/.env.template backend/.env
+cd backend
+pnpm tenant:seed:workspace
 ```
 
-Modifiez `backend/.env` avec votre configuration :
+Sans cible, cette commande ne crée le tenant par défaut que s'il n'en existe
+aucun, choisit l'unique tenant ou demande parmi plusieurs. Elle crée/renouvelle
+`tenant-admin@stocket.fr` avec `admin1234` et remplace les données du tenant
+choisi. Définissez `TENANT_ADMIN_TENANT_SLUG` ou `TENANT_ADMIN_TENANT_ID` pour
+cibler explicitement un tenant existant.
+
+!!! danger "Les données tenant sont remplacées"
+    N'exécutez pas ce seed sur un tenant dont les données doivent être conservées.
+
+## 6. Vérifier l'installation
+
+| Vérification | URL |
+|--------------|-----|
+| Liveness API | `http://localhost:8080/health-check/live` |
+| Readiness API | `http://localhost:8080/health-check/ready` |
+| Swagger partiel | `http://localhost:8080/docs` |
+| Hôte web plateforme | `http://localhost:3000` |
+| Tenant par défaut sur base neuve | `http://stocket.localhost:3000` |
+| Console MinIO | `http://localhost:9001` |
+
+Swagger ne décrit actuellement que le groupe santé implémenté avec Effect
+`HttpApiBuilder`, pas tous les endpoints.
+
+## Shell Nix optionnel
+
+Plusieurs dépôts possèdent leur propre flake :
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/stocket_inventory
-NODE_ENV=development
-PORT=8080
-CORS_ORIGIN=http://localhost:3000
-BETTER_AUTH_SECRET=<chaîne aléatoire de 32+ octets>
-BETTER_AUTH_URL=http://localhost:8080
-FRONTEND_URL=http://localhost:3000
+cd backend
+nix develop
 ```
 
-**Frontend :**
-
-```bash
-echo "VITE_API_BASE_URL=http://localhost:8080/api/v1" > frontend/.env
-```
-
-!!!tip "Infisical CLI"
-    Le backend et le frontend disposent d'un `justfile` avec une tâche `env`. Si vous utilisez Infisical CLI, vous pouvez générer les fichiers `.env` automatiquement :
-    ```bash
-    cd backend && just env
-    cd frontend && just env
-    ```
-    Ceci exécute `infisical export --env=dev --format=dotenv > .env` pour injecter les secrets depuis Infisical.
-
-## Configuration Manuelle (Alternative)
-
-Si vous préférez ne pas utiliser Nix :
-
-### Prérequis
-
-- Node.js >= 20
-- pnpm >= 10
-- PostgreSQL 16
-- Python 3.12 (pour la documentation)
-
-### Configuration de la Base de Données
-
-```bash
-createdb stocket_inventory
-```
-
-### Variables d'Environnement
-
-Copiez le modèle d'environnement :
-
-```bash
-cp backend/.env.template backend/.env
-```
-
-Modifiez `backend/.env` avec votre configuration (voir le tableau ci-dessus).
-
-### Démarrer les Services
-
-```bash
-# Terminal 1 : API
-cd backend && pnpm start
-
-# Terminal 2 : Web
-cd frontend && pnpm dev
-```
-
-## Vérifier l'Installation
-
-1. Ouvrez http://localhost:8080/api/docs - Vous devriez voir Swagger UI
-2. Ouvrez http://localhost:3000 - Vous devriez voir la page de connexion
-
-## Prochaines Étapes
-
-- [Démarrage rapide](quick-start.md) - Créer vos premiers produits
-- [Configuration](configuration.md) - En savoir plus sur les options de configuration
+Il n'existe pas de flake racine. Consultez la
+[configuration de développement](../development/setup.md) pour le démarrage
+manuel et le dépannage.

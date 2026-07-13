@@ -1,16 +1,33 @@
-# Traitement des Commandes
+# Commandes
 
-Suivez les commandes d'approvisionnement des yachts tout au long de leur cycle de vie complet.
+Les commandes suivent les produits demandés par un client et leur livraison. **Opérations → Commandes** (`/orders`) exige la fonctionnalité tenant `ORDERS` et la permission correspondante.
 
-## Flux de Travail des Commandes
+## Parcourir
 
-Les commandes suivent ce cycle de vie :
+Recherchez numéro de commande ou société cliente et filtrez par statut. Le tableau affiche numéro, client, statut, nombre d'articles, total, création et actions. Il n'existe actuellement ni route de détail, kanban, assignation ou historique complet dans le frontend.
+
+## Créer
+
+Une commande commence toujours en **Brouillon**. Indiquez :
+
+- un client ;
+- l'adresse de livraison ;
+- au moins un article avec produit, quantité positive, prix unitaire non négatif et notes facultatives ;
+- éventuellement échéance, yacht et instructions.
+
+Choisir un produit préremplit son prix standard si disponible. Choisir le client ne recopie ni son adresse ni son yacht. Il n'existe pas d'option « enregistrer confirmée ».
+
+## Modifier et supprimer
+
+Les commandes Brouillon et Confirmée peuvent modifier adresse, échéance, yacht et instructions. L'interface actuelle ne change ni client ni lignes. Seul un Brouillon peut être supprimé.
+
+## Cycle des statuts
 
 ```mermaid
 graph LR
     A[Brouillon] --> B[Confirmée]
     B --> C[Approvisionnement]
-    C --> D[Préparation]
+    C --> D[Prélèvement]
     D --> E[Emballée]
     E --> F[Expédiée]
     F --> G[Livrée]
@@ -19,7 +36,7 @@ graph LR
     C --> H
     D --> H
     E --> H
-    B --> I[En Attente]
+    B --> I[En attente]
     C --> I
     D --> I
     E --> I
@@ -30,67 +47,6 @@ graph LR
     I --> E
 ```
 
-### Statuts des Commandes
+Les statuts décrivent uniquement le flux. Aucun endpoint de fulfillment monté ni contrôle explicite des quantités prélevées/emballées n'existe actuellement, et changer le statut ne réserve ni n'ajuste l'inventaire.
 
-| Statut | Description |
-|--------|-------------|
-| Brouillon | La commande est en cours de préparation |
-| Confirmée | La commande est confirmée et le traitement commence |
-| Approvisionnement | Les articles sont en cours d'approvisionnement |
-| Préparation | Les articles sont en cours de préparation |
-| Emballée | Les articles sont emballés et prêts à l'expédition |
-| Expédiée | La commande est en transit |
-| Livrée | La commande a été livrée |
-| Annulée | La commande a été annulée (accessible depuis Brouillon, Confirmée, Approvisionnement, Préparation, Emballée, En Attente) |
-| En Attente | La commande est temporairement suspendue (accessible depuis Confirmée, Approvisionnement, Préparation, Emballée ; peut revenir à ces statuts ou être Annulée) |
-
-### Champs de la Commande
-
-| Champ | Description |
-|-------|-------------|
-| Numéro de Commande | Identifiant unique de la commande |
-| Client | Fiche client associée |
-| Statut | Statut actuel de la commande |
-| Date Limite de Livraison | Date de livraison requise |
-| Adresse de Livraison | Destination d'expédition |
-| Nom du Yacht | Yacht cible pour l'approvisionnement |
-| Instructions Spéciales | Notes de livraison supplémentaires |
-| Montant Total | Total calculé de la commande |
-| Assignée À | Utilisateur responsable de la commande |
-| Créée Par | Utilisateur ayant créé la commande |
-| Confirmée Le | Horodatage de la confirmation |
-| Expédiée Le | Horodatage de l'expédition |
-| Livrée Le | Horodatage de la livraison |
-| ID Tâche Kanban | Lien vers la tâche du tableau kanban |
-
-## Création d'une Commande
-
-1. Accédez aux **Commandes**
-2. Cliquez sur **Créer une Commande**
-3. Remplissez les détails de la commande :
-   - **Client** - Sélectionnez un client dans la liste des clients
-   - **Adresse de Livraison** - Destination d'expédition
-   - **Nom du Yacht** - Yacht cible
-   - **Date Limite de Livraison** - Date de livraison requise
-   - **Instructions Spéciales** - Notes supplémentaires éventuelles
-4. Ajoutez les articles
-5. Enregistrez comme brouillon ou confirmez
-
-## Gestion des Articles de Commande
-
-Chaque commande contient des articles avec :
-
-- Référence produit
-- Quantité commandée
-- Prix unitaire
-- Quantité préparée
-- Quantité emballée
-
-## Historique des Commandes
-
-Toutes les modifications de commande sont suivies dans le journal d'audit :
-
-- Changements de statut
-- Ajouts/suppressions d'articles
-- Modifications de quantité
-- Changements d'affectation
+La lecture exige `ORDERS.READ`; création, modification, statut et suppression exigent `ORDERS.WRITE`.

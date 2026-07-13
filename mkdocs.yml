@@ -1,9 +1,9 @@
-site_name: Stocket Inventory Documentation
-site_description: Yacht provisioning inventory management system
+site_name: Stocket Documentation
+site_description: Multi-tenant inventory, operations, and platform documentation
 site_url: https://stocketfr.github.io/documentation/
 repo_url: https://github.com/stocketfr/documentation
-repo_name: stocket/documentation
-copyright: Copyright &copy; 2025 Stocket Inventory
+repo_name: stocketfr/documentation
+copyright: Copyright &copy; 2026 Stocket
 
 theme:
   name: material
@@ -48,13 +48,13 @@ plugins:
           default: true
           name: English
           build: true
-          site_name: "Stocket Inventory Documentation"
-          site_description: "Yacht provisioning inventory management system"
+          site_name: "Stocket Documentation"
+          site_description: "Multi-tenant inventory, operations, and platform documentation"
         - locale: fr
           name: Français
           build: true
-          site_name: "Documentation Stocket Inventory"
-          site_description: "Système de gestion d'inventaire pour yachts"
+          site_name: "Documentation Stocket"
+          site_description: "Documentation de l'inventaire, des opérations et de la plateforme multi-tenant"
           nav_translations:
             Home: Accueil
             Getting Started: Démarrage
@@ -62,7 +62,8 @@ plugins:
             Quick Start: Démarrage rapide
             Configuration: Configuration
             User Guide: Guide Utilisateur
-            Overview: Aperçu
+            Authentication: Authentification
+            Dashboard: Tableau de bord
             Products: Produits
             Categories: Catégories
             Locations: Emplacements
@@ -74,9 +75,13 @@ plugins:
             Stock Movements: Mouvements de stock
             Users & Roles: Utilisateurs & Rôles
             Branding: Personnalisation
+            Settings: Paramètres
+            Notifications: Notifications
+            Platform Administration: Administration plateforme
             Audit Logs: Journaux d'audit
             Development: Développement
             Architecture: Architecture
+            Project & Module Map: Carte des projets et modules
             Setup: Configuration
             Code Style: Style de code
             Testing: Tests
@@ -143,6 +148,8 @@ nav:
       - Configuration: getting-started/configuration.md
   - User Guide:
       - user-guide/index.md
+      - Authentication: user-guide/authentication.md
+      - Dashboard: user-guide/dashboard.md
       - Products: user-guide/products.md
       - Categories: user-guide/categories.md
       - Suppliers: user-guide/suppliers.md
@@ -154,10 +161,14 @@ nav:
       - Orders: user-guide/orders.md
       - Users & Roles: user-guide/users-roles.md
       - Branding: user-guide/branding.md
+      - Settings: user-guide/settings.md
+      - Notifications: user-guide/notifications.md
       - Audit Logs: user-guide/audit-logs.md
+      - Platform Administration: user-guide/platform-administration.md
   - Development:
       - development/index.md
       - Architecture: development/architecture.md
+      - Project & Module Map: development/project-map.md
       - Setup: development/setup.md
       - Code Style: development/code-style.md
       - Testing: development/testing.md

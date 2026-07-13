@@ -1,61 +1,79 @@
-# Démarrage Rapide
+# Démarrage rapide
 
-Ce guide vous accompagnera dans la création de vos premiers produits dans Stocket Inventory.
+Ce parcours suppose une base locale neuve : le seed sans cible crée donc le
+tenant par défaut. Sur une base existante, il choisit l'unique tenant ou demande
+parmi plusieurs ; utilisez alors l'hôte choisi. Un utilisateur tenant ne se
+connecte pas sur l'hôte plateforme.
 
-## 1. Connexion
-
-Accédez à http://localhost:3000 et connectez-vous avec votre compte Better Auth.
-
-## 2. Données d'Exemple (Optionnel)
-
-Pour remplir la base de données avec des données d'exemple pour les tests :
+## 1. Créer les données et se connecter
 
 ```bash
-pnpm --filter @stocket/api seed
+cd backend
+pnpm tenant:seed:workspace
 ```
 
-Ceci crée :
+Sur une base neuve, ouvrez `http://stocket.localhost:3000` ; sinon remplacez
+`stocket` par le slug/hôte choisi. Connectez-vous avec :
 
-- Des catégories
-- Des fournisseurs
-- Des produits
-- Des emplacements
-- Des clients
-- Des enregistrements d'inventaire
-- Des commandes
-- Des mouvements de stock
-- Des journaux d'audit
+- e-mail : `tenant-admin@stocket.fr`
+- mot de passe : `admin1234`
 
-## 3. Créer une Catégorie
+`http://localhost:3000` est l'hôte séparé des superadmins plateforme.
 
-1. Accédez à **Produits** dans la barre latérale
-2. Cliquez sur **Gérer les Catégories**
-3. Cliquez sur **Créer une Catégorie**
-4. Entrez un nom (ex: "Fournitures de Cuisine")
-5. Sélectionnez éventuellement une catégorie parente
-6. Cliquez sur **Enregistrer**
+## 2. Examiner le tableau de bord
 
-## 4. Créer un Produit
+Le tableau de bord résume produits, emplacements, quantité, stock faible et
+activité récente. L'accès dépend des permissions résolues de l'utilisateur.
 
-1. Accédez à **Produits**
-2. Cliquez sur **Créer un Produit**
-3. Remplissez les champs obligatoires :
-   - **SKU** - Entrez manuellement ou scannez un code-barres
-   - **Nom** - Nom du produit
-   - **Catégorie** - Sélectionnez dans l'arborescence
-   - **Point de Réapprovisionnement** - Niveau de stock minimum
-4. Cliquez sur **Enregistrer**
+## 3. Créer un produit
 
-## 5. Voir les Journaux d'Audit
+1. Ouvrez **Produits** puis **Créer un produit**.
+2. Saisissez un SKU unique et un nom.
+3. Sélectionnez une catégorie existante ou créez-en une depuis ce flux.
+4. Ajoutez éventuellement unité, code-barres, coût, prix, seuil, état
+   périssable, notes et photos.
+5. Enregistrez.
 
-Toutes les modifications sont suivies automatiquement :
+L'action QR remplit le SKU si le navigateur prend en charge `BarcodeDetector`
+et si l'accès caméra est autorisé.
 
-1. Accédez aux **Journaux d'Audit**
-2. Consultez l'historique de toutes les modifications
-3. Filtrez par type d'entité, utilisateur ou date
+## 4. Créer un emplacement et une zone
 
-## Prochaines Étapes
+1. Ouvrez **Emplacements** et créez un entrepôt, fournisseur, client ou transit.
+2. Ouvrez le détail de l'emplacement.
+3. Ajoutez une zone, étagère ou bac ; les zones peuvent être imbriquées.
 
-- [Produits](../user-guide/products.md) - En savoir plus sur la gestion des produits
-- [Catégories](../user-guide/categories.md) - Organiser votre inventaire
-- [Configuration](configuration.md) - Personnaliser votre installation
+Évitez de supprimer une zone parent contenant des enfants. La suppression
+actuelle enlève uniquement la ligne sélectionnée et peut rendre les descendants
+inaccessibles.
+
+## 5. Ajouter et ajuster l'inventaire
+
+1. Ouvrez **Inventaire** puis **Ajouter**.
+2. Choisissez produit, emplacement et éventuellement zone.
+3. Saisissez la quantité et les données de lot/expiration éventuelles.
+4. Utilisez **Ajuster** pour appliquer ensuite un delta positif ou négatif.
+
+Les ajustements et le registre des mouvements sont indépendants : l'un ne crée
+ni ne met automatiquement à jour l'autre.
+
+## 6. Tester un import CSV guidé (optionnel)
+
+Smart Import exige le droit fonctionnel `smartImport` du tenant et un worker
+actif.
+
+1. Ouvrez **Produits** puis **Importer**.
+2. Chargez un CSV normalisé ou un export Sortly pris en charge.
+3. Examinez le preview et les suggestions déterministes/IA.
+4. Résolvez catégories, emplacements/zones, doublons SKU et photos.
+5. Approuvez le plan et suivez la tâche durable.
+6. Examinez les compteurs et téléchargez le CSV d'incidents proposé.
+
+Voir [Produits](../user-guide/products.md) pour le workflow complet.
+
+## Suite
+
+- [Emplacements et zones](../user-guide/locations.md)
+- [Inventaire](../user-guide/inventory.md)
+- [Utilisateurs et rôles](../user-guide/users-roles.md)
+- [Configuration](configuration.md)

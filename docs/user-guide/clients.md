@@ -1,74 +1,21 @@
-# Managing Clients
+# Clients
 
-Clients represent the customers you provision for — typically yacht owners, management companies, or charter operators.
+Clients are the customer accounts selected when creating orders. Open **Operations → Clients** (`/clients`).
 
-## Understanding Clients
+## Browse
 
-Each client record stores contact details, billing information, and delivery preferences. Clients are linked to orders, allowing you to track provisioning history per customer.
+The card list can search company name/email and filter account status. Cards show company, status, yacht, contact, email, phone, and credit limit, with edit, status, and delete actions. There is no separate client detail or order-history page.
 
-### Client Statuses
+## Create or edit
 
-| Status | Description |
-|--------|-------------|
-| **ACTIVE** | Client is in good standing and can place orders |
-| **SUSPENDED** | Client is temporarily suspended (e.g., overdue payments) |
-| **INACTIVE** | Client is no longer active |
+Company name, contact person, and valid email are required. Optional fields are yacht name, phone, billing address, default delivery address, account status, payment terms, credit limit, and notes.
 
-## Viewing Clients
+Statuses are Active, Suspended, and Inactive metadata. They do not currently prevent selection in a new order. The order form loads at most the first 100 clients and has no client search, so use deliberate naming and confirm the selected record.
 
-Navigate to **Clients** from the sidebar to see all client records.
+Selecting a client while creating an order does not currently copy the client's delivery address or yacht into the order form; enter those values explicitly.
 
-The client list displays:
+## Delete
 
-- **Company Name** - Client organization
-- **Yacht Name** - Associated yacht
-- **Contact Person** - Primary contact
-- **Email** - Contact email address
-- **Status** - Account status (Active, Suspended, Inactive)
+A client cannot be deleted while any order references it, including completed or cancelled orders. Changing the order status does not remove the reference. Prefer Inactive when history must remain.
 
-!!! tip "Filtering Clients"
-    Use the search bar to find clients by name, yacht, or email. Filter by status to show only active or suspended clients.
-
-## Creating a Client
-
-1. Click the **Create Client** button
-2. Fill in the client details
-3. Click **Save**
-
-### Client Fields
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| Company Name | Yes | Client company or organization name |
-| Yacht Name | No | Name of the yacht being provisioned |
-| Contact Person | No | Primary point of contact |
-| Email | No | Contact email (must be unique) |
-| Phone | No | Contact phone number |
-| Billing Address | No | Address for invoicing |
-| Default Delivery Address | No | Default shipping destination |
-| Account Status | No | ACTIVE, SUSPENDED, or INACTIVE (defaults to ACTIVE) |
-| Payment Terms | No | Payment terms (e.g., "Net 30") |
-| Credit Limit | No | Maximum credit allowed |
-| Notes | No | Additional notes about the client |
-
-## Editing Clients
-
-1. Click on a client row to open the edit form
-2. Modify the fields as needed
-3. Click **Save** to apply changes
-
-!!! warning "Deleting Clients"
-    Deleting a client will **fail** if they have associated orders. You must cancel or complete all orders before deleting a client record.
-
-## Linking Clients to Orders
-
-When creating an order, you select a client from the client list. This links the order to the client and auto-populates the delivery address and yacht name from the client record.
-
-See [Order Processing](orders.md) for details on creating orders.
-
-## Best Practices
-
-1. **Keep yacht names updated** - Yachts may change names between seasons
-2. **Use status fields** - Suspend clients with payment issues rather than deleting them
-3. **Set default delivery addresses** - Saves time when creating repeat orders
-4. **Add payment terms** - Helps track credit and billing expectations
+Viewing needs `CLIENTS.READ`; changes need `CLIENTS.WRITE`.

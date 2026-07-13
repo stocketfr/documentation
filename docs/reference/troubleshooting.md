@@ -1,241 +1,138 @@
 # Troubleshooting
 
-Solutions to common issues when working with Stocket Inventory.
+Start with the process that owns the failing boundary. The workspace controller only coordinates repositories; backend, worker, frontend, PostgreSQL, and MinIO still have separate logs and health.
 
-## Development Environment
+## Bootstrap cannot install `@stocketfr/*`
 
-### Nix shell won't start
+The shared packages are hosted on GitHub Packages.
 
-**Symptom:** `nix develop` fails or hangs
+1. Create or refresh a GitHub token with `read:packages`.
+2. Configure the `@stocketfr` registry and token in your user-level npm configuration.
+3. Run `pnpm install` again in the failing repository or rerun `./meta/scripts/bootstrap`.
 
-**Solutions:**
+Do not put the token in a repository `.npmrc`.
 
-1. Check Nix installation:
-   ```bash
-   nix --version
-   ```
+## Wrong Node or package manager
 
-2. Ensure flakes are enabled in your Nix config (`~/.config/nix/nix.conf`):
-   ```
-   experimental-features = nix-command flakes
-   ```
-
-3. Try entering the shell from the specific repo directory:
-   ```bash
-   cd backend && nix develop
-   ```
-
-### Docker services won't start
-
-**Symptom:** `docker compose -f meta/docker-compose.yml up -d` fails
-
-**Solutions:**
-
-1. Check Docker is running:
-   ```bash
-   docker info
-   ```
-
-2. Check for port conflicts:
-   ```bash
-   lsof -i :5432
-   ```
-
-3. Reset Docker containers:
-   ```bash
-   docker compose -f meta/docker-compose.yml down -v
-   docker compose -f meta/docker-compose.yml up -d
-   ```
-
-### Port already in use
-
-**Symptom:** "Address already in use" error
-
-**Solutions:**
+Backend and frontend target Node.js 22 and pnpm 10.28. Other repositories have
+their own checked-in tool versions; some package and remote-desktop workflows
+still use Node.js 20. Check the owning repository before changing versions:
 
 ```bash
-# Find process using the port
-lsof -i :8080  # or :3000, :5432
-
-# Kill the process
-kill -9 <PID>
+node --version
+pnpm --version
 ```
 
-### Dependencies won't install
+Enter the repository's Nix shell or enable Corepack if your versions differ. Bun is not the backend runtime.
 
-**Symptom:** `pnpm install` fails
+## PostgreSQL or MinIO does not start
 
-**Solutions:**
-
-1. Clear pnpm cache:
-   ```bash
-   pnpm store prune
-   rm -rf node_modules
-   pnpm install
-   ```
-
-2. Check Node.js version:
-   ```bash
-   node --version  # Should be 20+
-   ```
-
-## Database Issues
-
-### Cannot connect to PostgreSQL
-
-**Symptom:** Connection refused errors
-
-**Solutions:**
-
-1. Check if PostgreSQL is running:
-   ```bash
-   pg_isready -h localhost -p 5432
-   ```
-
-2. Start PostgreSQL via Docker Compose:
-   ```bash
-   docker compose -f meta/docker-compose.yml up -d
-   ```
-
-3. Check environment variables in `backend/.env`
-
-### Migration or schema errors
-
-**Symptom:** Drizzle ORM errors about missing tables or columns
-
-**Solutions:**
-
-1. Restart the API server — schema changes are applied automatically in development:
-   ```bash
-   cd backend && pnpm start
-   ```
-
-2. Check database exists:
-   ```bash
-   psql -h localhost -U postgres -c '\l'
-   ```
-
-3. Check schema definitions in `backend/src/effect/platform/db/schema.ts`
-
-## API Issues
-
-### Better Auth authentication errors
-
-**Symptom:** 401 Unauthorized errors
-
-**Solutions:**
-
-1. Verify `BETTER_AUTH_SECRET` is set in `backend/.env` (must be 32+ random bytes)
-2. Verify `BETTER_AUTH_URL` is set correctly (e.g., `http://localhost:8080`)
-3. Check session cookie is being sent (Better Auth uses cookie-based sessions)
-4. Try regenerating the secret:
-   ```bash
-   openssl rand -base64 32
-   ```
-   Update `BETTER_AUTH_SECRET` in `backend/.env` and restart the server.
-
-### Shared types build fails
-
-**Symptom:** `@stocket/types` build fails
-
-**Solutions:**
-
-1. Build the API first:
-   ```bash
-   pnpm --filter @stocket/api build
-   ```
-
-2. Check for TypeScript errors:
-   ```bash
-   pnpm --filter @stocket/api type-check
-   ```
-
-## Frontend Issues
-
-### API client type errors
-
-**Symptom:** TypeScript errors in handwritten hooks or shared types
-
-**Solutions:**
-
-1. Rebuild shared types after API changes:
-   ```bash
-   pnpm --filter @stocket/types barrels
-   pnpm --filter @stocket/types build
-   ```
-
-### Hydration errors
-
-**Symptom:** React hydration mismatch warnings
-
-**Solutions:**
-
-1. Ensure client/server rendering matches
-2. Avoid browser-only code at module scope during SSR
-3. Defer browser APIs to effects or guards
-
-### Translation not working
-
-**Symptom:** Translation keys shown instead of text
-
-**Solutions:**
-
-1. Check locale files exist in `frontend/src/locales/`
-2. Verify i18n configuration
-3. Check language prefix in URL
-
-## Build Issues
-
-### TypeScript errors
-
-**Symptom:** Build fails with type errors
-
-**Solutions:**
+`./meta/scripts/dev` attempts to start both services automatically when Docker is available.
 
 ```bash
-# Check specific module
-pnpm --filter @stocket/api type-check
-pnpm --filter @stocket/web type-check
+docker compose -f meta/docker-compose.yml ps
+docker compose -f meta/docker-compose.yml logs postgres minio minio-init
 ```
 
-### Lint errors
+Check that ports 5432, 9000, and 9001 are free. Verify the local bucket initializer completed before debugging photo/import failures.
 
-**Symptom:** Lint command fails
+!!! danger
+    `docker compose down -v` deletes the local PostgreSQL volume and object-storage data. Do not use it as a routine restart command.
 
-**Solutions:**
+## API or worker fails during storage startup
+
+The globally composed storage layer checks the bucket during startup, so invalid
+or inaccessible storage normally prevents both the API and worker from
+starting. All `S3_*` values must be present, the endpoint must be a valid URL,
+and the configured bucket must already exist. Local MinIO normally needs
+`S3_FORCE_PATH_STYLE=true`. Compare Infisical with `backend/env.template`;
+editing a local `.env` will not change `pnpm start` unless you deliberately
+changed the launcher.
+
+## Loggle reports a missing frontend script
+
+The current `meta/.loggle.toml` invokes `@stocket/web dev:workspace`, but the
+frontend repository does not define that script. When Loggle is installed,
+start PostgreSQL and MinIO from `meta/docker-compose.yml`, then run
+`pnpm start:workspace` in `backend` and `pnpm dev` in `frontend`. The direct
+meta runner already uses the valid frontend script, but `./meta/scripts/dev`
+selects Loggle automatically when it is installed and no optional processes
+were requested.
+
+## Tenant route redirects or returns “tenant not found”
+
+- Use `http://localhost:3000` for the platform console.
+- Use `http://<slug>.localhost:3000` for a tenant.
+- Confirm the slug exists in the platform console. Create a missing tenant there; the workspace seed targets existing tenants and only creates the default tenant when the database has none.
+- Confirm the signed-in user has a membership in that tenant. Public account creation alone does not currently provision tenant membership.
+- Keep `TENANT_BASE_DOMAIN` and `PLATFORM_HOST` aligned between frontend and backend.
+
+## Login cookies fail through SSR or a proxy
+
+The browser uses same-origin `/api/auth` and `/api/v1`; the SSR process forwards cookie, host, and protocol to `INTERNAL_API_ORIGIN`.
+
+- Confirm `INTERNAL_API_ORIGIN` points to the backend from the frontend process.
+- Set `TRUSTED_PROXY=1` only when a trusted reverse proxy supplies `x-forwarded-host` and `x-forwarded-proto`.
+- Check `BETTER_AUTH_URL`, `FRONTEND_URL`, CORS origins, and any cookie domain together.
+- Do not add `VITE_API_BASE_URL`; it is not used by the current architecture.
+
+## Smart Import stays queued
+
+The API only enqueues the durable PostgreSQL task. Start the separate worker:
 
 ```bash
-# Backend (oxlint) — auto-fix
-pnpm --filter @stocket/api lint:fix
-
-# Frontend (ESLint) — auto-fix
-pnpm --filter @stocket/web lint:fix
+cd backend
+pnpm start:worker
 ```
 
-## CI/CD Issues
+Then inspect both API and worker logs. Validate `BACKGROUND_TASK_*`, PostgreSQL, and S3/MinIO. An absent `OPENAI_API_KEY` is not itself a failure—the importer falls back to deterministic proposals.
 
-### GitHub Actions failing
+## Inventory and movement totals disagree
 
-**Symptom:** CI checks fail
+Inventory rows and the stock-movement ledger are currently independent. Recording a movement does not change inventory, and adjusting inventory does not add a movement. Correct the inventory row directly and record any required ledger entry separately; avoid assuming one is an automatic reconciliation of the other.
 
-**Solutions:**
+## A child area disappeared after deleting its parent
 
-1. Run checks locally first:
-   ```bash
-   pnpm lint && pnpm test && pnpm build
-   ```
+Do not delete a parent area while it still has children. The current database relation does not cascade or reparent descendants; they can become unreachable in the tree. Reparent or delete every child first. Inventory that referenced the deleted area loses its area assignment.
 
-2. Check secrets are configured in GitHub
+## Frontend validation fails
 
-3. Clear GitHub Actions cache if needed
+Run the checks independently to isolate the failure:
 
-## Getting More Help
+```bash
+cd frontend
+pnpm type-check
+pnpm lint
+pnpm format:check
+pnpm test:unit
+```
 
-If you're still stuck:
+The active application lint command uses Oxlint. The separately published `@stocketfr/eslint-config` package does not mean the applications currently run ESLint.
 
-1. Check [existing issues](https://github.com/stocketfr/documentation/issues)
-2. Search error messages online
-3. Open a new issue with:
-    - Error message
-    - Steps to reproduce
-    - Environment details
+## Backend checks fail
+
+```bash
+cd backend
+pnpm type-check
+pnpm lint
+pnpm test
+pnpm test:integration
+```
+
+Integration tests need a reachable PostgreSQL database and use `TEST_DATABASE_URL` when set. Keep unit and integration failures separate before changing configuration.
+
+## API documentation looks incomplete
+
+Swagger UI is at `http://localhost:8080/docs`, not `/api/docs`, and currently
+documents only health. Mounted backend routers determine the live endpoints;
+their matching `@stocketfr/types` schemas define payloads. Do not treat every
+exported schema as a mounted route—for example, fulfillment remains an
+unmounted prototype.
+
+## French page falls back to English
+
+The site uses suffix localization (`page.fr.md`) and falls back to English when a French file is absent. If a translation exists but is not selected, verify the suffix, the current locale selector, and that the page is present in `mkdocs.yml` navigation.
+
+## Still blocked
+
+Capture the failing command, repository name and revision, Node/pnpm versions, relevant process logs, and a redacted environment summary. Open an issue in the repository that owns the failure; use the documentation repository only for documentation defects.

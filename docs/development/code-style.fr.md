@@ -1,232 +1,105 @@
 # Style de code
 
-Ce guide couvre les standards et conventions de codage utilisés dans Stocket Inventory.
+Les dépôts Stocket partagent des contrats TypeScript mais gardent leurs propres outils. Suivez la configuration et le code voisin du dépôt modifié ; aucune commande racine ne couvre automatiquement tous les projets.
 
-## Outils
+## TypeScript général
 
-| Outil | Portée | Objectif |
-|-------|--------|----------|
-| oxlint | Backend | Linting rapide |
-| ESLint | Frontend | Linting |
-| Prettier | Les deux | Formatage |
-| TypeScript | Les deux | Vérification des types |
+- Conservez le typage strict et évitez `any`. Réduisez `unknown` à la frontière d'un adaptateur lorsque l'entrée externe ne peut être typée directement.
+- Préférez l'inférence pour les fonctions locales et des types publics explicites lorsqu'ils clarifient le contrat.
+- Utilisez `import type` pour les dépendances de type.
+- Préservez les champs snake_case des DTO API publiés ; les noms propres à l'UI restent à sa frontière.
+- Décodez les entrées externes avec les schémas partagés au lieu de caster.
+- Gardez les changements assez ciblés pour que les vérifications du dépôt propriétaire restent la référence.
 
-## Exécuter les vérifications
+## Contrats partagés
+
+Requêtes, réponses, enums et schémas communs vivent dans `packages/types` et sont publiés sous `@stocketfr/types`. Les consommateurs passent par l'alias et un sous-chemin :
+
+```ts
+import { Permission, Resource } from '@stocket/types/auth'
+import { CreateProductRequestSchema } from '@stocket/types/products'
+```
+
+Modifiez d'abord le contrat dans packages, ajoutez un Changeset, publiez ou utilisez le snapshot approuvé, puis mettez les consommateurs à jour. Ne dupliquez pas un schéma dans backend et frontend pour contourner ce cycle.
+
+## Conventions backend
+
+Le backend exécute Node 22 avec Effect et Drizzle. Un module courant sous `src/effect/modules/<nom>/` contient `router.ts`, `service.ts`, `repository.ts`, `mappers.ts`, `types.ts` et des erreurs typées. Les modules complexes séparent aussi écritures, requêtes, validations, états ou orchestration. Adaptez la structure au besoin réel.
+
+Responsabilités :
+
+- **router** — chemin/méthode, décodage par schéma partagé, permissions/fonctionnalités, réponse HTTP ;
+- **service/workflow** — règles métier et composition ;
+- **repository** — persistance tenant via `TenantQuery`/Drizzle ;
+- **mapper** — valeurs de base/domaine vers les DTO publiés ;
+- **errors** — erreurs métier/infrastructure typées.
+
+Utilisez `Effect.Service`, les erreurs taguées et le canal d'erreur Effect. Ne lancez pas d'exception pour une condition métier attendue. Réutilisez les helpers de `platform/effect`, `platform/db` et `platform/http`.
+
+Les routes tenant déclarent accès et décodage ensemble :
+
+```ts
+HttpRouter.post(
+  '/',
+  tenantRouteContext({
+    permissions: [[Resource.PRODUCTS, Permission.WRITE]],
+    decode: jsonBody(CreateProductRequestSchema),
+    session: 'optional',
+  }).pipe(
+    Effect.flatMap(({ input, userId }) =>
+      respondAuditedMutation(
+        Effect.flatMap(ProductsService, (service) =>
+          service.create(input, userId),
+        ),
+        {
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.PRODUCT,
+          entityId: (product) => product.id,
+          responseOptions: { status: 201 },
+        },
+      ),
+    ),
+  ),
+)
+```
+
+Utilisez `tenantRoute` pour une réponse JSON normale et `tenantRouteContext` lorsque réponse/audit exige le contexte décodé. Ajoutez un `guard` de fonctionnalité à côté des permissions. L'audit de `respondAuditedMutation` est une métadonnée au mieux après succès, hors transaction ; ne l'utilisez jamais pour orchestrer la transaction.
+
+Les services utilisent `makeServiceTracer` depuis `platform/observability/service-tracer`. Journalisez des clés/propriétés structurées, jamais secrets ou DTO entiers. Une transaction explicite transmet la surface de requête transactionnelle ; une composition inter-modules est valable si un orchestrateur possède le cas d'usage.
+
+## Conventions frontend
+
+Le frontend utilise React 19, TanStack Start/Router/Query/Form, StyleX, Tailwind 4 et shadcn/Radix.
+
+- Importez le code applicatif avec `@/`, pas l'ancien `~/`.
+- Les routes vivent sous `src/routes` ; ne modifiez jamais `routeTree.gen.ts` généré.
+- Placez les hooks API/query sous `src/lib/data` et utilisez le sous-chemin DTO partagé.
+- Protégez les routes avec `requireRouteAccess(currentUser, Resource, options)` en miroir du serveur.
+- Conservez les filtres partageables dans des paramètres de recherche URL validés.
+- Utilisez les clés/options de requête générées pour invalidation et chargement conditionnel.
+- Utilisez StyleX ou Tailwind/shadcn selon le modèle du composant voisin, sans migration incidente.
+- Traitez labels, clavier, focus, erreurs, chargement et vide comme partie de la fonctionnalité.
+
+N'utilisez pas de global navigateur lors du SSR. Loaders et fonctions serveur transmettent hôte, protocole et cookie via les adaptateurs API même origine existants.
+
+## Formatage et lint
+
+Backend et frontend utilisent Prettier et Oxlint. Le paquet `@stocketfr/eslint-config` est publié mais ne rend pas ESLint actif dans les applications.
 
 ```bash
-# Lint backend (oxlint)
-pnpm --filter @stocket/api lint
+# backend
+pnpm format
+pnpm lint
+pnpm type-check
 
-# Lint backend avec auto-correction
-pnpm --filter @stocket/api lint:fix
-
-# Vérification des types backend
-pnpm --filter @stocket/api type-check
-
-# Lint frontend (ESLint)
-pnpm --filter @stocket/web lint
-
-# Lint frontend avec auto-correction
-pnpm --filter @stocket/web lint:fix
-
-# Build des types partagés (inclut la vérification des types)
-pnpm --filter @stocket/types build
+# frontend (vérifications sans modification)
+pnpm format:check
+pnpm lint
+pnpm type-check
 ```
 
-## Conventions d'import
+Laissez le formateur décider ponctuation et retours. Ne mélangez pas un reformatage global à une évolution fonctionnelle.
 
-### Backend (Effect.ts)
+## Documentation
 
-```typescript
-// 1. Dépendances externes
-import { Effect, Layer, Schema } from "effect";
-import { HttpRouter, HttpServerRequest } from "@effect/platform";
-
-// 2. Imports de la plateforme
-import { requirePermission } from "../../platform/authorization";
-import { DrizzleDatabase } from "../../platform/drizzle";
-
-// 3. Imports locaux du module
-import { ProductsService } from "./service";
-import { CreateProductSchema } from "./products.schema";
-```
-
-### Frontend (React)
-
-```typescript
-// 1. Dépendances externes
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-
-// 2. Composants
-import { Button } from "~/components/ui/button";
-
-// 3. Utilitaires et types
-import { type ProductResponseDto } from "~/lib/data/products";
-```
-
-**Imports de types** — utiliser le mot-clé `type` inline :
-
-```typescript
-import { type ProductResponseDto } from "~/lib/data/products";
-```
-
-**Variables inutilisées** — préfixer avec underscore :
-
-```typescript
-const { data, error: _error } = useQuery();
-```
-
-## Configuration Prettier
-
-### Backend
-
-Utilise `.prettierrc` avec :
-
-```json
-{
-  "singleQuote": true,
-  "trailingComma": "all"
-}
-```
-
-### Frontend
-
-Utilise `prettier-plugin-tailwindcss` pour le tri automatique des classes Tailwind. Pas de `.prettierrc` personnalisé — défauts de Prettier.
-
-## TypeScript
-
-### Mode strict
-
-Tous les modules utilisent TypeScript strict :
-
-```json
-{
-  "compilerOptions": {
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true
-  }
-}
-```
-
-### Alias de chemins
-
-| Module | Alias | Correspond à |
-|--------|-------|--------------|
-| Frontend | `~/*` | `./src/*` |
-
-## Conventions de nommage
-
-### Fichiers
-
-| Type | Convention | Exemple |
-|------|------------|---------|
-| Répertoire module backend | kebab-case | `stock-movements/` |
-| Router backend | `router.ts` | `router.ts` |
-| Service backend | `service.ts` | `service.ts` |
-| Schéma backend | `<feature>.schema.ts` | `products.schema.ts` |
-| Erreurs backend | `<feature>.errors.ts` | `products.errors.ts` |
-| Composant frontend | PascalCase | `ProductForm.tsx` |
-| UI frontend | kebab-case | `button.tsx` |
-
-### Code
-
-| Type | Convention | Exemple |
-|------|------------|---------|
-| Service Effect | PascalCase | `ProductsService` |
-| Interface | PascalCase (sans préfixe I) | `ProductResponse` |
-| Fonction | camelCase | `findAllProducts` |
-| Constante | UPPER_SNAKE | `MAX_PAGE_SIZE` |
-| Membre Enum | UPPER_SNAKE | `AuditAction.CREATE` |
-| Schéma | PascalCase | `CreateProductSchema` |
-| Classe d'erreur | PascalCase | `ProductNotFound` |
-
-### Structure d'un module Backend
-
-```
-modules/<feature>/
-├── router.ts              # Gestionnaires de routes HTTP
-├── service.ts             # Logique métier (service Effect)
-├── repository.ts          # Accès aux données (requêtes Drizzle)
-├── <feature>.schema.ts    # Schémas de validation (Effect Schema)
-├── <feature>.errors.ts    # Définitions d'erreurs de domaine
-└── <feature>.utils.ts     # Mappers, helpers (optionnel)
-```
-
-### Structure des composants Frontend
-
-```
-components/
-├── ui/                     # Composants de base (Radix/shadcn, kebab-case)
-│   ├── button.tsx
-│   └── input.tsx
-├── products/               # Composants par feature (PascalCase)
-│   ├── ProductForm.tsx
-│   └── ProductList.tsx
-└── common/                 # Composants partagés
-    └── Header.tsx
-```
-
-## Bonnes pratiques
-
-### Général
-
-- Utiliser `const` par défaut, `let` uniquement si réassignation nécessaire
-- Préférer les exports nommés aux exports par défaut
-- Toujours utiliser des accolades pour les structures de contrôle
-- Utiliser les retours anticipés pour réduire l'imbrication
-
-### TypeScript
-
-```typescript
-// Préférer les interfaces pour les formes d'objets
-interface ProductFormProps {
-  product?: Product;
-  onSubmit: (data: CreateProductDto) => void;
-}
-
-// Utiliser type pour les unions/intersections
-type ButtonVariant = "primary" | "secondary" | "danger";
-```
-
-### React
-
-```typescript
-// Composants fonction nommés
-export function ProductCard({ product }: ProductCardProps) {
-  return <div>...</div>;
-}
-```
-
-### Effect.ts
-
-```typescript
-// Les services yieldent leurs dépendances puis retournent les méthodes publiques
-export class ProductsService extends Effect.Service<ProductsService>()(
-  "ProductsService",
-  {
-    effect: Effect.gen(function* () {
-      const repo = yield* ProductsRepository;
-      return { findAll, create, update, delete: softDelete };
-    }),
-    dependencies: [ProductsRepository.Default],
-  }
-) {}
-```
-
-## Commentaires
-
-- Éviter les commentaires évidents
-- Documenter la logique métier complexe
-- Utiliser JSDoc pour les APIs publiques
-
-```typescript
-/**
- * Construit un arbre hiérarchique à partir d'une liste plate de catégories.
- * Les catégories sans parent deviennent des nœuds racines.
- */
-function buildTree(categories: Category[]): CategoryTreeNode[] {
-  // Implémentation
-}
-```
+Synchronisez la structure anglaise et `.fr.md`. Utilisez liens relatifs, blocs avec langage et avertissements pour les opérations destructrices/non atomiques. Ajoutez toute page navigable à `mkdocs.yml` et vérifiez liens/navigation. La CI exécute `mkdocs build --strict`.

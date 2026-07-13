@@ -1,18 +1,23 @@
 # Getting Started
 
-This section will help you get Stocket Inventory up and running.
+Stocket is a tenant-aware inventory application built from independent backend,
+frontend, shared-package, and support repositories. The `meta` project assembles
+the supported local development checkout.
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+- Node.js 22 and pnpm 10.28.0
+- Git and Docker Compose
+- GitHub Packages credentials (`read:packages`)
+- Infisical access for runtime secrets
+- Nix is optional; several repositories provide their own flake
 
-- Node.js >= 20
-- pnpm >= 10
-- Nix with flakes enabled (each repo has its own `flake.nix`)
-- Docker & Docker Compose (for PostgreSQL and other services)
+## Path Through This Guide
 
-## Next Steps
+1. [Installation](installation.md) — authenticate, bootstrap, and start the stack
+2. [Quick Start](quick-start.md) — seed a tenant and exercise the real product,
+   location, and inventory workflow
+3. [Configuration](configuration.md) — understand runtime boundaries and find
+   the complete environment reference
 
-1. [Installation](installation.md) - Set up the development environment
-2. [Quick Start](quick-start.md) - Create your first products
-3. [Configuration](configuration.md) - Configure environment variables
+Developers should continue with the [Project and Module Map](../development/project-map.md).

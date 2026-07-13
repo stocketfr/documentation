@@ -1,108 +1,72 @@
 # Configuration
 
-This guide covers all configuration options for Stocket Inventory.
+Stocket configuration is split by process. Infisical is the operational source
+for secrets; checked-in `env.template` files are references.
 
-## Environment Variables
+## Backend Processes
 
-### Backend API
+The API and task worker share database, tenant-host, object-storage, logging,
+and observability configuration. The worker does not compose the auth layer,
+but its current entry graph eagerly imports shared auth configuration. It
+therefore needs Better Auth/frontend values and the staging/production email
+configuration. The API additionally needs its HTTP port and CORS origins.
+Smart Import can optionally call an OpenAI-compatible
+API. Worker concurrency, leases, heartbeats, polling, recovery, retry, and
+progress throttling are independently tunable.
 
-Located in `backend/.env`:
+The API validates `NODE_ENV` and `PORT` at entry. Required credentials such as
+`DATABASE_URL`, `BETTER_AUTH_SECRET`, and S3 keys must be available before
+their layers initialize.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `NODE_ENV` | No | Environment mode (default: `development`) |
-| `PORT` | No | API port (default: `8080`) |
-| `CORS_ORIGIN` | No | Allowed CORS origin (default: `http://localhost:3000`) |
-| `BETTER_AUTH_SECRET` | Yes | Random 32+ byte string for Better Auth session signing |
-| `BETTER_AUTH_URL` | Yes | Better Auth server URL (e.g. `http://localhost:8080`) |
-| `FRONTEND_URL` | No | Frontend URL for redirects (default: `http://localhost:3000`) |
+See the complete [Environment Variable Reference](../reference/environment-variables.md).
 
-Individual database variables are also supported: `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`.
+## Frontend Process
 
-**Example:**
+The web application uses server-only runtime values:
 
-```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/stocket_inventory
-NODE_ENV=development
-PORT=8080
-CORS_ORIGIN=http://localhost:3000
-BETTER_AUTH_SECRET=<random 32+ byte string>
-BETTER_AUTH_URL=http://localhost:8080
-FRONTEND_URL=http://localhost:3000
-```
+| Variable | Purpose |
+|----------|---------|
+| `INTERNAL_API_ORIGIN` | private origin used by SSR and the Vite `/api` proxy |
+| `WEB_URL` | canonical web origin used by Better Auth on the server |
+| `TENANT_BASE_DOMAIN` | tenant hostname suffix |
+| `PLATFORM_HOST` | platform administration hostname |
+| `TRUSTED_PROXY` | set to `1` only behind a trusted proxy that owns forwarded headers |
+| `PORT`, `HOST` | production Node server bind values |
 
-### Frontend Web
+Browser code uses same-origin `/api/v1` and `/api/auth`; it does not need a
+public `VITE_API_BASE_URL`. `VITE_CSP_NONCE` is the only optional browser-build
+value currently referenced by application source.
 
-Located in `frontend/.env`:
+## Local Services
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_API_BASE_URL` | Yes | Backend API URL |
-| `VITE_SENTRY_DSN` | No | Sentry DSN for error tracking |
-| `SENTRY_AUTH_TOKEN` | No | Sentry auth token for source maps |
-
-**Example:**
-
-```bash
-VITE_API_BASE_URL=http://localhost:8080/api/v1
-VITE_SENTRY_DSN=<sentry dsn>
-SENTRY_AUTH_TOKEN=<sentry auth token>
-```
-
-## Better Auth Authentication
-
-Better Auth is configured in the backend only. The `BETTER_AUTH_SECRET` must be a random string of at least 32 bytes. You can generate one with:
+`meta/docker-compose.yml` provides PostgreSQL and MinIO. Default local values
+are embedded in `pnpm start:workspace` for convenience, while secrets still
+come from Infisical.
 
 ```bash
-openssl rand -base64 32
+docker compose -f meta/docker-compose.yml up -d --wait postgres minio
+docker compose -f meta/docker-compose.yml up minio-init
 ```
 
-`BETTER_AUTH_URL` should point to the backend server URL where Better Auth endpoints are served.
+## Tenancy
 
-!!!note
-    `BETTER_AUTH_SECRET` lives only in the backend `.env` -- it is never set in the frontend.
+- local platform: `localhost:3000`
+- local tenant: `<slug>.localhost:3000`
+- hosted platform: `PLATFORM_HOST`
+- hosted tenants: subdomains of `TENANT_BASE_DOMAIN` or verified tenant domains
 
-## Database Configuration
-
-### Using Docker Compose (Recommended)
-
-PostgreSQL is provided by Docker Compose:
-
-```bash
-docker compose -f meta/docker-compose.yml up -d
-```
-
-Default configuration:
-
-- Database name: `stocket_inventory`
-- Host: `localhost`
-- Port: `5432`
-- User: `postgres`
-- Password: `postgres`
-
-### Manual Configuration
-
-Create the database:
-
-```bash
-createdb stocket_inventory
-```
-
-Set the connection string:
-
-```bash
-DATABASE_URL=postgresql://username:password@localhost:5432/stocket_inventory
-```
+The web proxy forwards the original host/protocol to the API. Set
+`TRUSTED_PROXY=1` only when the SSR process is actually behind a trusted reverse
+proxy; otherwise it uses the direct request host.
 
 ## API Documentation
 
-Swagger UI is available at:
-
-- http://localhost:8080/api/docs
-- OpenAPI JSON: http://localhost:8080/api/docs-json
+Swagger is mounted at `http://localhost:8080/docs`. It currently covers only
+the health group migrated to Effect `HttpApiBuilder`, so inspect router source
+and shared contracts for the rest of the API.
 
 ## Next Steps
 
-- [Architecture](../development/architecture.md) - Understand the system design
-- [Development Setup](../development/setup.md) - Set up for development
+- [Environment Variables](../reference/environment-variables.md)
+- [Architecture](../development/architecture.md)
+- [Development Setup](../development/setup.md)

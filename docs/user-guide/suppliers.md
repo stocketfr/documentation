@@ -1,70 +1,19 @@
-# Managing Suppliers
+# Suppliers
 
-Suppliers are the vendors who provide products for your inventory. Each supplier record stores contact information and can be linked to specific products with pricing and lead time details.
+Suppliers are tenant master data for purchasing contacts. Open **Operations → Suppliers** (`/suppliers`).
 
-## Viewing Suppliers
+## Browse
 
-Navigate to **Suppliers** from the sidebar to see all supplier records.
+Search by supplier name and filter active/inactive state. Cards expose edit and delete actions. Active state is changed by editing the record; there is no card-level quick toggle.
 
-The supplier list displays:
+## Create or edit
 
-- **Name** - Supplier company name
-- **Contact Person** - Primary contact
-- **Email** - Contact email
-- **Phone** - Contact phone number
-- **Status** - Active or inactive
+Name is required. Contact person, email, phone, address, HTTP(S) website, notes, and active state are optional.
 
-!!! tip "Searching Suppliers"
-    Use the search bar to find suppliers by name, contact person, or email.
+The current application does not expose supplier-product linking, primary supplier selection, supplier SKUs, pricing histories, purchase orders, or supplier performance. Do not expect changes here to update a product.
 
-## Creating a Supplier
+## Delete or deactivate
 
-1. Click the **Create Supplier** button
-2. Fill in the supplier details
-3. Click **Save**
+Delete removes the master-data record after server validation. Deactivate a supplier when you need to retain it for operational context. Products do not currently have a user-operable supplier relationship in this UI.
 
-### Supplier Fields
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| Name | Yes | Supplier company name |
-| Contact Person | No | Primary point of contact |
-| Email | No | Contact email address |
-| Phone | No | Contact phone number |
-| Address | No | Physical address |
-| Website | No | Supplier website URL |
-| Notes | No | Additional notes (e.g., speciality, payment terms) |
-| Is Active | No | Whether the supplier is currently active (defaults to true) |
-
-## Editing Suppliers
-
-1. Click on a supplier row to open the edit form
-2. Modify the fields as needed
-3. Click **Save** to apply changes
-
-!!! warning "Deleting Suppliers"
-    Deleting a supplier will **fail** if products reference it as their primary supplier. Reassign or remove the supplier link from all products before deleting.
-
-## Supplier-Product Linking
-
-Products can be linked to one or more suppliers via the **supplier products** relationship. This tracks supplier-specific details for each product:
-
-| Field | Description |
-|-------|-------------|
-| Supplier SKU | The supplier's own SKU for the product |
-| Cost Per Unit | Purchase price from this supplier |
-| Lead Time (Days) | Expected delivery time |
-| Minimum Order Quantity | Minimum units per order |
-| Is Preferred | Whether this is the preferred supplier for the product |
-
-### Primary Supplier
-
-Each product can designate one **primary supplier** — used as the default for reordering. This is set on the product record itself, not on the supplier-product link.
-
-## Best Practices
-
-1. **Keep contact info current** - Enables quick reordering during urgent provisions
-2. **Track lead times** - Critical for planning yacht provisioning with tight deadlines
-3. **Use the preferred flag** - Marks the go-to supplier when multiple options exist
-4. **Set minimum order quantities** - Prevents under-ordering and rejected purchase orders
-5. **Deactivate rather than delete** - Keep historical supplier data for audit purposes
+Viewing needs `SUPPLIERS.READ`; changes need `SUPPLIERS.WRITE`.
