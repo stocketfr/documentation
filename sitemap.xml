@@ -2,476 +2,560 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
         <loc>https://stocketfr.github.io/documentation/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/roadmap/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/roadmap/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/roadmap/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/contributing/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/contributing/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/contributing/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/contributing/guidelines/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/contributing/guidelines/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/contributing/guidelines/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/contributing/pull-requests/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/contributing/pull-requests/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/contributing/pull-requests/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/development/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/development/api-development/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/api-development/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/api-development/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/development/architecture/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/architecture/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/architecture/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/development/ci-cd/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/ci-cd/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/ci-cd/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/development/code-style/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/code-style/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/code-style/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/development/frontend-development/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/frontend-development/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/frontend-development/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/development/project-map/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/project-map/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/project-map/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/development/setup/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/setup/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/setup/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/development/testing/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/testing/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/testing/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/getting-started/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/getting-started/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/getting-started/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/getting-started/configuration/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/getting-started/configuration/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/getting-started/configuration/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/getting-started/installation/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/getting-started/installation/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/getting-started/installation/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/getting-started/quick-start/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/getting-started/quick-start/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/getting-started/quick-start/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/reference/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/reference/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/reference/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/reference/cli-commands/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/reference/cli-commands/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/reference/cli-commands/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/reference/environment-variables/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/reference/environment-variables/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/reference/environment-variables/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/reference/troubleshooting/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/reference/troubleshooting/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/reference/troubleshooting/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/areas/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/areas/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/areas/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/audit-logs/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/audit-logs/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/audit-logs/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/user-guide/authentication/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/authentication/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/branding/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/branding/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/branding/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/categories/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/categories/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/categories/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/clients/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/clients/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/clients/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/user-guide/dashboard/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/dashboard/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/dashboard/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/inventory/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/inventory/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/inventory/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/locations/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/locations/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/locations/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/user-guide/notifications/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/notifications/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/notifications/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/orders/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/orders/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/orders/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/user-guide/platform-administration/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/platform-administration/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/platform-administration/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/products/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/products/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/products/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/user-guide/settings/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/settings/"/>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/settings/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/stock-movements/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/stock-movements/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/stock-movements/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/suppliers/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/suppliers/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/suppliers/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/user-guide/users-roles/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/users-roles/"/>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/users-roles/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/roadmap/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/roadmap/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/roadmap/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/contributing/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/contributing/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/contributing/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/contributing/guidelines/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/contributing/guidelines/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/contributing/guidelines/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/contributing/pull-requests/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/contributing/pull-requests/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/contributing/pull-requests/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/development/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/development/api-development/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/api-development/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/api-development/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/development/architecture/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/architecture/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/architecture/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/development/ci-cd/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/ci-cd/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/ci-cd/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/development/code-style/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/code-style/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/code-style/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/development/frontend-development/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/frontend-development/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/frontend-development/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/fr/development/project-map/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/project-map/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/project-map/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/fr/development/setup/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/setup/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/setup/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/development/testing/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/development/testing/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/development/testing/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/getting-started/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/getting-started/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/getting-started/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/getting-started/configuration/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/getting-started/configuration/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/getting-started/configuration/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/getting-started/installation/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/getting-started/installation/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/getting-started/installation/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/getting-started/quick-start/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/getting-started/quick-start/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/getting-started/quick-start/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/reference/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/reference/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/reference/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/reference/cli-commands/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/reference/cli-commands/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/reference/cli-commands/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/reference/environment-variables/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/reference/environment-variables/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/reference/environment-variables/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/reference/troubleshooting/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/reference/troubleshooting/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/reference/troubleshooting/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/areas/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/areas/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/areas/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/audit-logs/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/audit-logs/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/audit-logs/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/fr/user-guide/authentication/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/authentication/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/authentication/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/branding/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/branding/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/branding/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/categories/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/categories/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/categories/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/clients/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/clients/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/clients/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/fr/user-guide/dashboard/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/dashboard/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/dashboard/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/inventory/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/inventory/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/inventory/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/locations/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/locations/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/locations/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/fr/user-guide/notifications/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/notifications/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/notifications/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/orders/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/orders/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/orders/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/fr/user-guide/platform-administration/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/platform-administration/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/platform-administration/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/products/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/products/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/products/"/>
     </url>
     <url>
+        <loc>https://stocketfr.github.io/documentation/fr/user-guide/settings/</loc>
+        <lastmod>2026-07-13</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/settings/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/settings/"/>
+    </url>
+    <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/stock-movements/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/stock-movements/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/stock-movements/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/suppliers/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/suppliers/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/suppliers/"/>
     </url>
     <url>
         <loc>https://stocketfr.github.io/documentation/fr/user-guide/users-roles/</loc>
-        <lastmod>2026-05-28</lastmod>
+        <lastmod>2026-07-13</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="fr" href="https://stocketfr.github.io/documentation/fr/user-guide/users-roles/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://stocketfr.github.io/documentation/user-guide/users-roles/"/>
