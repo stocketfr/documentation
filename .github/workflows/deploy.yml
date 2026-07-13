@@ -15,9 +15,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Audit navigation, locale parity, and relative links
+        run: node scripts/audit-docs.mjs
 
       - name: Install dependencies
         run: pip install mkdocs-material mkdocs-static-i18n mkdocs-git-revision-date-localized-plugin

@@ -1,213 +1,216 @@
 # Development Setup
 
-This guide covers setting up the development environment for contributing to Stocket Inventory.
+This guide creates the coordinated multi-repository checkout used for Stocket
+development.
 
 ## Prerequisites
 
-- Node.js >= 20.0.0
-- pnpm >= 10.0.0
-- Bun (runtime for the backend)
-- PostgreSQL 16
-- Git
-- Nix with flakes enabled (optional — per-package dev shells)
-- Infisical CLI + `just` (optional — used by `backend/justfile` for env setup)
+- Git; `jj` is optional and used automatically for new clones when available
+- Node.js 22
+- pnpm 10.28.0 (Corepack is recommended)
+- Docker with the Compose plugin
+- a classic GitHub token with `read:packages`
+- Infisical CLI access to the Stocket development environment
+- Nix with flakes, `just`, and Loggle are optional conveniences
 
-## Clone & Install (Monorepo Root)
+Python 3.12 and MkDocs are needed only when working on documentation. Rust and
+Tauri system libraries are needed only for the desktop shell.
 
-Stocket is a pnpm monorepo with a single lockfile at the workspace root. One `pnpm install` hydrates every package.
+## Authenticate to GitHub Packages
 
-```bash
-git clone https://github.com/stocketfr/stocket.git
-cd stocket
-pnpm install
-```
-
-!!! warning "Package manager"
-    Only `pnpm` from the repo root. Running `npm install` or `bun install` at root will corrupt the workspace.
-
-### Optional: Per-Package Nix Shells
-
-There is **no root `flake.nix`**. If you want an isolated dev environment for a package, each of `backend/` and `frontend/` has its own flake:
+Backend and frontend install immutable shared packages from GitHub Packages.
+Even public packages require npm registry authentication. Export the token as
+`GITHUB_PACKAGES_TOKEN` through a hidden prompt or secret manager; never type
+the literal value into command history.
 
 ```bash
-cd backend && nix develop
-cd frontend && nix develop
+# GITHUB_PACKAGES_TOKEN must already be exported securely.
+pnpm config set --global @stocketfr:registry https://npm.pkg.github.com
+pnpm config set --global //npm.pkg.github.com/:_authToken "${GITHUB_PACKAGES_TOKEN}"
+unset GITHUB_PACKAGES_TOKEN
 ```
 
-### Start Services
+Do not commit the token. GitHub Actions uses its short-lived `GITHUB_TOKEN`.
 
-Docker Compose lives inside the monorepo at `meta/docker-compose.yml`:
+## Clone and Bootstrap
+
+Choose an empty parent directory, clone `meta`, then let its manifest assemble
+the checkout:
 
 ```bash
-cd meta && docker compose up -d
+git clone https://github.com/stocketfr/meta.git
+./meta/scripts/bootstrap
 ```
 
-Then start the application servers from the repo root using workspace filters:
+Bootstrap performs the following operations:
+
+1. reads `meta/repos.yaml` and clones/fetches `packages`, `backend`, `frontend`,
+   `remote-desktop`, `documentation`, and `landing` as siblings of `meta`;
+2. links workspace-root configuration from `meta/root/`;
+3. installs the root pnpm workspace and any repository-local dependency sets;
+4. builds projects that expose a bootstrap-time `build` script.
+
+It does not clone `infrastructure`; clone that repository separately when
+working on hosted operations. A `mobile-app` workspace slot exists in the root
+template, but there is no active mobile repository in the manifest.
+
+Rerun bootstrap after `repos.yaml`, root workspace configuration, or shared
+dependency topology changes. Use `./meta/scripts/clone-or-update` when you only
+need to fetch the managed repositories.
+
+## Environment Configuration
+
+`backend/env.template` and `frontend/env.template` document consumed keys. They
+are reference files, not local secret sources. Normal project scripts invoke
+Infisical:
 
 ```bash
-# Terminal 1 — Backend (runs with Bun)
-pnpm --filter @stocket/api start
-
-# Terminal 2 — Frontend
-pnpm --filter @stocket/web dev
+infisical login
 ```
 
-Services started:
+Your account/project setup must provide the keys described in
+[Environment Variables](../reference/environment-variables.md). In particular,
+the API requires database, tenancy, Better Auth, and object-storage values; the
+web process requires its internal API and host configuration.
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| PostgreSQL | localhost:5432 | Database |
-| Effect.ts API | http://localhost:8080 | Backend (Bun) |
-| TanStack Start | http://localhost:3000 | Frontend |
-| MkDocs | http://localhost:8000 | Documentation |
+!!! warning "No checked-in `.env` workflow"
+    The current `justfile`s do not contain a `just env` recipe and the template
+    is named `env.template`, not `.env.template`. Do not copy older commands
+    that export Infisical into a tracked or long-lived `.env` file.
 
-## Common Commands
+## Start the Standard Stack
 
-### Workspace Root
+From the workspace parent:
 
 ```bash
-pnpm install                                   # Install every package's deps
-pnpm --filter @stocket/api start            # Run backend
-pnpm --filter @stocket/web dev              # Run frontend
-pnpm --filter @stocket/types barrels        # Regenerate type barrels
-pnpm --filter @stocket/types build          # Build shared types
+./meta/scripts/dev
 ```
 
-!!! note "Legacy meta scripts"
-    Commands like `pnpm sync` / `pnpm bootstrap` in `meta/` exist from the pre-monorepo era and are not needed for day-to-day work.
+When Loggle is installed and no optional processes are requested, the script
+uses `meta/.loggle.toml`. Otherwise it starts processes directly. Docker-backed
+PostgreSQL and MinIO are started whenever Docker is available, followed by the
+API and frontend.
 
-### Backend
+!!! warning "Current Loggle graph"
+    `meta/.loggle.toml` currently invokes `@stocket/web dev:workspace`, but the
+    frontend has no such package script. If Loggle is installed, use
+    [Run Projects Individually](#run-projects-individually) until the meta
+    configuration is corrected. The direct runner uses the valid frontend
+    `dev` script.
+
+| Service | Local endpoint | Purpose |
+|---------|----------------|---------|
+| PostgreSQL | `localhost:5432` | tenant, auth, inventory, audit, and task data |
+| MinIO S3 API | `http://localhost:9000` | product photos and background-task inputs |
+| MinIO console | `http://localhost:9001` | local object inspection (`minio` / `minio123`) |
+| Effect API | `http://localhost:8080` | API, auth, health, and partial Swagger UI |
+| TanStack Start | `http://localhost:3000` | platform-host web application |
+
+Useful variants:
+
+```bash
+./meta/scripts/dev --include-docs
+./meta/scripts/dev --include-desktop
+```
+
+`--with-docker` is a stale option and has no current effect. The direct runner
+already attempts to start PostgreSQL and MinIO.
+
+### Run the Task Worker
+
+The standard meta process graph does not currently launch the background task
+worker. Run it in another terminal when testing asynchronous product imports:
 
 ```bash
 cd backend
-pnpm start             # Development server (Bun)
-pnpm build             # Build (bun build)
-pnpm test              # Run tests (Vitest)
-pnpm test:watch        # Tests in watch mode
-pnpm test:cov          # Tests with coverage
-pnpm test:integration  # Integration tests
-pnpm lint              # Lint (oxlint)
-pnpm type-check        # TypeScript check
-pnpm seed              # Seed sample data
+pnpm start:worker
 ```
 
-### Frontend
+The API and worker use the same database and object-storage configuration.
+
+## Run Projects Individually
+
+Start infrastructure without the meta process runner:
+
+```bash
+docker compose -f meta/docker-compose.yml up -d --wait postgres minio
+docker compose -f meta/docker-compose.yml up minio-init
+```
+
+Then start application processes in separate terminals:
+
+```bash
+cd backend
+pnpm start:workspace
+```
 
 ```bash
 cd frontend
-pnpm dev               # Development server (Vite)
-pnpm build             # Production build
-pnpm lint              # oxlint
-pnpm test:unit         # Vitest unit tests
-pnpm test:e2e          # Playwright E2E
+pnpm dev
 ```
 
-### Shared Types
+`start:workspace` supplies safe local database, host, CORS, MinIO, and seed
+defaults around Infisical-provided secrets. For normal backend-only development,
+`pnpm start` uses the Infisical environment without those workspace overrides.
 
-Barrels must run **before** build — the generator only picks up `.type.ts` and `.enum.ts` files; other suffixes are silently ignored.
+## Seed a Tenant and Demo Data
 
-```bash
-pnpm --filter @stocket/types barrels   # Generate barrel exports
-pnpm --filter @stocket/types build     # Build shared types (ESM + CJS)
-```
-
-!!! warning "Bump the version when you change a shared package"
-    If you edit `packages/types`, `packages/eslint-config`, or `packages/tsconfig`, bump that package's `package.json` version in the same PR. The `tag.yml` workflow publishes to npm on merge.
-
-## Database Setup
-
-### With Docker Compose
-
-The database is automatically created and configured via Docker Compose in `meta/`.
-
-### Manual Setup
-
-```bash
-createdb stocket_inventory
-```
-
-### Seed Data
-
-Populate with sample data:
+With PostgreSQL available and migrations applied, run:
 
 ```bash
 cd backend
-pnpm seed
+pnpm tenant:seed:workspace
 ```
 
-## Environment Variables
+With no target, the recipe creates the default tenant only when none exist,
+selects the only tenant, or prompts when several exist. It creates/rotates
+`tenant-admin@stocket.fr` with password `admin1234`, seeds default roles, and
+replaces that tenant's demo categories, suppliers, products, locations,
+clients, inventory, orders, stock movements, and audit logs. For a deliberate
+existing target, set `TENANT_ADMIN_TENANT_SLUG` or `TENANT_ADMIN_TENANT_ID`.
 
-### Backend (.env)
+!!! danger "Destructive within the selected tenant"
+    The tenant seed clears and recreates demo data for its selected tenant. Do
+    not point it at data you need to preserve.
+
+On a new database, open `http://stocket.localhost:3000` for the created default
+tenant. Otherwise use the selected tenant's slug/hostname. The platform console
+remains at `http://localhost:3000` and requires a platform superadmin.
+
+## Optional Nix Shells
+
+Backend, frontend, packages, documentation, and infrastructure provide their
+own flakes. Enter the shell from the repository you are changing:
 
 ```bash
-DATABASE_URL=postgresql://user@localhost:5432/stocket_inventory
-BETTER_AUTH_SECRET=your-secret-here
-PORT=8080
-NODE_ENV=development
+cd backend
+nix develop
 ```
 
-### Frontend (.env.local)
+There is no canonical root flake for the assembled checkout.
+
+## Common Repository Checks
 
 ```bash
-VITE_API_BASE_URL=http://localhost:8080/api/v1
+# Backend
+cd backend
+pnpm type-check
+pnpm lint
+pnpm test
+pnpm test:integration
+
+# Frontend
+cd frontend
+pnpm type-check
+pnpm lint
+pnpm format:check
+pnpm test:unit
+
+# Shared packages
+cd packages
+pnpm build
 ```
 
-!!! note "Better Auth secret"
-    `BETTER_AUTH_SECRET` lives only in the backend `.env` -- never in the frontend.
-
-### Environment Setup with Infisical
-
-Use the `just` command runner and Infisical CLI for managing env variables:
-
-```bash
-cd backend && just env
-cd ../frontend && just env
-```
-
-## IDE Setup
-
-### VS Code
-
-Recommended extensions:
-
-- oxc (oxlint) — `oxc.oxc-vscode`
-- Prettier
-- Tailwind CSS IntelliSense
-- TypeScript Importer
-- Nix IDE (optional)
-
-### Settings
-
-The project includes workspace settings in `.vscode/settings.json`.
-
-## Troubleshooting
-
-### Port Already in Use
-
-```bash
-# Find process using port
-lsof -i :8080
-lsof -i :3000
-
-# Kill process
-kill -9 <PID>
-```
-
-### Database Connection Issues
-
-Check PostgreSQL is running:
-
-```bash
-pg_isready -h localhost -p 5432
-```
-
-### Node Modules Issues
-
-Clean install:
-
-```bash
-rm -rf node_modules
-rm -rf backend/node_modules
-rm -rf frontend/node_modules
-pnpm install
-```
+Use [CLI Commands](../reference/cli-commands.md) for the complete script map and
+[Troubleshooting](../reference/troubleshooting.md) for registry, host, database,
+and object-storage failures.

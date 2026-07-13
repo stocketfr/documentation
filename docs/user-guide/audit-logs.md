@@ -1,103 +1,17 @@
 # Audit Logs
 
-The audit log tracks all changes made to the system, providing a complete history for accountability and troubleshooting.
+Open **Admin → Audit Logs** (`/audit-logs`) to inspect recorded tenant mutations. Access needs `AUDIT_LOGS.READ`; it is not hard-coded to the Admin role, although Admin receives it by default.
 
-!!! warning "Admin Permission Required"
-    Viewing audit logs requires admin permission. Only users with the admin role can access the audit logs section.
+## Current table
 
-## Viewing Audit Logs
+The table shows action, entity type, a truncated entity ID, user/name when available, and timestamp. The page currently filters by one action and one entity type. It does not expose user, date, or entity-ID filters even though lower-level query support is broader.
 
-Navigate to **Audit Logs** to see the complete change history.
+The filter contract includes Create, Update, Delete, Restore, Add Photo, Status Change, and Adjust Quantity, plus product/category/supplier/location/area/client/inventory/role/movement/order/item/photo entities. Not every enum combination is emitted: users, branding, photos, notifications, tasks, and superadmin actions are not written to this tenant audit stream; superadmin uses a separate platform audit.
 
-Each log entry includes:
+## Current limits
 
-- **Timestamp** - When the change occurred
-- **User** - Who made the change
-- **Action** - Type of action (Create, Update, Delete, Restore)
-- **Entity Type** - What was changed (Product, Category, etc.)
-- **Entity ID** - The specific item changed
-- **Changes** - Before/after values
+The UI does not show before/after diffs, IP address, user agent, request context, or a detail drawer. Current tenant audit writes set changes and user agent to null.
 
-## Filtering Logs
+Audit writes are currently best-effort asynchronous effects, not part of the same database transaction as the domain mutation. A successful business change can therefore exist without a corresponding audit row if that separate insert fails. Use application/database backups and domain records—not this screen alone—for forensic or compliance guarantees.
 
-Filter audit logs by:
-
-- **Entity Type** - Products, Categories, Orders, etc.
-- **Action** - Create, Update, Delete, Restore
-- **User** - Specific user
-- **Date Range** - Time period
-- **Entity ID** - Specific item
-
-## Understanding Changes
-
-For update actions, the log shows:
-
-```json
-{
-  "before": {
-    "name": "Old Product Name",
-    "price": 100
-  },
-  "after": {
-    "name": "New Product Name",
-    "price": 150
-  }
-}
-```
-
-## Action Types
-
-| Action | Description |
-|--------|-------------|
-| CREATE | New item created |
-| UPDATE | Existing item modified |
-| DELETE | Item soft-deleted |
-| RESTORE | Deleted item restored |
-| ADJUST_QUANTITY | Inventory quantity changed |
-| ADD_PHOTO | Photo added to item |
-| STATUS_CHANGE | Status field changed |
-
-## Entity Types
-
-| Entity | Description |
-|--------|-------------|
-| PRODUCT | Inventory products |
-| CATEGORY | Product categories |
-| SUPPLIER | Supplier records |
-| ORDER | Client orders |
-| ORDER_ITEM | Order line items |
-| INVENTORY | Stock quantities |
-| LOCATION | Storage locations |
-| STOCK_MOVEMENT | Stock movements between locations |
-| PHOTO | Product images |
-| AREA | Zones within locations |
-| CLIENT | Client records |
-| ROLE | User roles |
-
-## Context Information
-
-Each audit log includes context:
-
-- **IP Address** - Origin of the request
-- **User Agent** - Browser/client information
-- **User ID** - Authenticated user
-
-## Use Cases
-
-### Troubleshooting
-
-1. Find when a product was last modified
-2. See who changed a price
-3. Track inventory adjustments
-
-### Compliance
-
-1. Demonstrate change tracking
-2. Provide audit trail for auditors
-3. Meet regulatory requirements
-
-### Recovery
-
-1. Identify accidental changes
-2. Understand what was changed
-3. Restore previous values manually if needed
+Deletion behavior varies by module; an audit `Delete` action does not imply every entity is restorable.

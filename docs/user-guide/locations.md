@@ -1,79 +1,28 @@
-# Managing Locations
+# Locations
 
-Locations represent physical places where inventory is stored. This includes warehouses, supplier facilities, client yachts, and items in transit.
+Locations represent warehouses, suppliers, goods in transit, or client sites. Open **Inventory → Locations** (`/locations`).
 
-## Understanding Locations
+## Browse
 
-Locations are categorized by type:
+Search and filter the paginated cards by type and active status. Select a card to open its detail page and manage the area's hierarchy.
 
-| Type | Description | Use Case |
-|------|-------------|----------|
-| **WAREHOUSE** | Your storage facilities | Main inventory storage |
-| **SUPPLIER** | Vendor storage locations | Track supplier stock |
-| **CLIENT** | Yacht or client premises | Items delivered to clients |
-| **IN_TRANSIT** | Items being transported | Track shipments |
+## Create or edit
 
-## Viewing Locations
+| Field | Notes |
+| --- | --- |
+| Name | Required, up to 200 characters. |
+| Type | Warehouse, Supplier, In Transit, or Client. |
+| Address | Optional. |
+| Contact person | Optional. |
+| Phone | Optional. |
+| Active | Status/filter metadata. Inactive locations remain selectable in current inventory and movement forms. |
 
-Navigate to the **Locations** section from the sidebar to see all locations.
+## Delete safely
 
-The location list displays:
+Deleting a location also deletes its area rows. Inventory references can be moved or deleted first. A stock-movement reference also blocks deletion, but movements are immutable and have no supported update/delete workflow; retain and deactivate that location instead.
 
-- **Name** - Location identifier
-- **Type** - Category of location
-- **Address** - Physical address
-- **Contact** - Primary contact person
-- **Status** - Active or inactive
+The location card does not itself show complete inventory history; use Inventory and Stock Movements with the location filter.
 
-!!! tip "Filtering Locations"
-    Use the type filter to show only warehouses, suppliers, or other location types.
+See [Areas](areas.md) for the hierarchy and its current parent-deletion limitation.
 
-## Creating a Location
-
-1. Click the **Create Location** button
-2. Fill in the required fields:
-   - **Name** - Location name (e.g., "Miami Warehouse")
-   - **Type** - Select location type
-   - **Address** - Physical address (optional)
-
-### Location Fields
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| Name | Yes | Location display name |
-| Type | Yes | WAREHOUSE, SUPPLIER, CLIENT, or IN_TRANSIT |
-| Address | No | Physical address |
-| Contact Person | No | Primary contact name |
-| Phone | No | Contact phone number |
-| Is Active | No | Location availability (defaults to true) |
-
-## Editing Locations
-
-1. Click on a location row to open the edit form
-2. Modify the fields as needed
-3. Click **Save** to apply changes
-
-!!! warning "Deleting Locations"
-    Deleting a location will **fail** if other entities reference it (inventory records, areas, etc.). You must remove or reassign all associated inventory records and areas before deleting a location.
-
-## Location Hierarchy
-
-Locations can contain **Areas** for more granular placement tracking:
-
-```
-Miami Warehouse (Location)
-├── Zone A (Area)
-│   ├── Shelf A1 (Area)
-│   └── Shelf A2 (Area)
-├── Zone B (Area)
-└── Cold Storage (Area)
-```
-
-See [Managing Areas](areas.md) for details on creating areas within locations.
-
-## Best Practices
-
-1. **Use descriptive names** - Include city or purpose (e.g., "Monaco Supplier - Linens")
-2. **Keep contact info updated** - Helps with quick reordering
-3. **Create areas for large locations** - Track exact placement within warehouses
-4. **Use IN_TRANSIT for shipments** - Track items moving between locations
+Viewing locations/areas needs `LOCATIONS.READ`; changes need `LOCATIONS.WRITE`.

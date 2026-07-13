@@ -1,304 +1,274 @@
 # Architecture
 
+Stocket separates independently released repositories from a coordinated local
+workspace. The application itself is a tenant-aware web/API system with a
+durable background worker.
+
+For the exhaustive repository and feature inventory, see the
+[Project and Module Map](project-map.md).
+
 ## System Overview
 
 ```mermaid
-graph TB
-    subgraph "Frontend"
-        A[TanStack Start] --> B[React 19]
-        A --> E[TanStack Router]
-        B --> C[TanStack Query]
-        B --> D[TanStack Form]
+flowchart TB
+    subgraph Client
+        UI["React 19 + TanStack Start"]
+        SW["Service worker and offline fallback"]
+        UI --- SW
     end
 
-    subgraph "Backend"
-        F[Effect.ts + Bun] --> G[Drizzle ORM]
-        G --> H[(PostgreSQL 16)]
+    subgraph Web
+        SSR["TanStack Start SSR process"]
+        Proxy["Same-origin /api proxy"]
+        SSR --- Proxy
     end
 
-    subgraph "Auth"
-        I[Better Auth]
+    subgraph Backend
+        API["Effect API · Node.js 22"]
+        Worker["Durable task worker · Node.js 22"]
+        Auth["Better Auth"]
     end
 
-    A -->|REST API| F
-    A --> I
-    F --> I
+    DB[("PostgreSQL 16")]
+    Storage["S3-compatible storage"]
+    Mail["Console or Resend email"]
+
+    UI --> SSR
+    Proxy --> API
+    API --- Auth
+    API --> DB
+    API --> Storage
+    API --> Mail
+    Worker --> DB
+    Worker --> Storage
 ```
 
-## Tech Stack
+The service worker precaches its fallback/manifest/brand assets, runtime-caches
+fetched static assets, and shows the fallback when navigation is offline.
+Successful application HTML and business data remain network-backed. There is
+no offline database or conflict-resolving synchronization layer.
+
+## Technology Stack
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | TanStack Start, React 19, TanStack Router, TanStack Query/Form, Tailwind CSS 4, Radix UI |
-| Backend | Effect.ts, Drizzle ORM, Bun, PostgreSQL 16 |
-| Auth | Better Auth |
-| API Docs | Effect HttpApi (OpenAPI) |
-| Tooling | pnpm workspaces, Nix flakes, TypeScript, Docker Compose |
-| i18n | i18next (en, de, fr) |
+| Web | TanStack Start, React 19, TanStack Router, TanStack Query/Form, Vite, Tailwind CSS 4, StyleX, Base UI/Radix |
+| API and worker | Effect, `@effect/platform-node`, Node.js 22, esbuild |
+| Persistence | PostgreSQL 16 and Drizzle ORM |
+| Authentication | Better Auth with cookie sessions |
+| Object storage | AWS S3 client against MinIO locally and an S3-compatible provider in hosted environments |
+| Email | Localized `@stocketfr/emails` templates with console or Resend transport |
+| Contracts | Versioned `@stocketfr/types` package, consumed through the `@stocket/types` alias |
+| Tooling | pnpm 10, TypeScript, Oxlint, Prettier, Vitest, Playwright, Nix flakes |
+| Documentation | MkDocs Material with English/French suffix-based localization |
 
-## Repository Structure
+## Repository and Release Boundaries
 
-Stocket is a pnpm monorepo. All packages live under one workspace root with a single `pnpm-lock.yaml`.
+The repositories can be cloned independently. `meta/repos.yaml` describes the
+checkout assembled by `meta/scripts/bootstrap`; `meta/root/` supplies the root
+pnpm workspace files used in that checkout.
 
-```
-stocket/
-├── backend/                # Effect.ts API (Bun runtime, @stocket/api)
-│   ├── src/
-│   │   └── effect/
-│   │       ├── modules/    # Feature modules
-│   │       ├── platform/   # Cross-cutting concerns
-│   │       └── http/       # HTTP app & middleware
-│   └── flake.nix           # Per-package Nix dev shell (optional)
-├── frontend/               # TanStack Start SSR app (@stocket/web)
-│   ├── src/
-│   │   ├── routes/         # File-based routes (_authed/ for protected)
-│   │   ├── components/     # React components
-│   │   └── lib/            # Utilities and data hooks
-│   └── flake.nix           # Per-package Nix dev shell (optional)
-├── mobile-app/             # Expo React Native app (@stocket/mobile)
-├── landing/                # Static marketing site
-├── remote-desktop/         # Tauri 2 desktop app (@stocket/remote-desktop)
-├── packages/
-│   ├── tsconfig/           # Shared TS configs (base.json, nestjs.json)
-│   ├── eslint-config/      # Shared ESLint config (legacy; not consumed today)
-│   └── types/              # Shared DTO interfaces/enums (@stocket/types)
-├── documentation/          # MkDocs documentation site (this site)
-├── meta/                   # docker-compose.yml, legacy multi-repo scripts
-├── infrastructure/         # Terraform (Hetzner + Cloudflare; not a workspace member)
-├── pnpm-workspace.yaml     # Single workspace definition
-└── pnpm-lock.yaml          # Single lockfile for the whole monorepo
-```
+This distinction matters:
 
-## Data Flow
+- root filters are convenient for coordinated local checks;
+- each repository retains its own Git history, CI, and lock/release policy;
+- backend and frontend consume published shared packages, not mutable sibling
+  source;
+- infrastructure is operated separately and is not in `meta/repos.yaml`;
+- backend/frontend application delivery is operator-controlled; there is no
+  persistent automatic post-merge deploy or standalone rollback workflow.
 
-```
-┌─────────────────────────────────────────┐
-│           TanStack Start Frontend       │
-│  React Query + handwritten clients       │
-│  Shared DTOs from @stocket/types      │
-│  Better Auth                             │
-└─────────────────────────────────────────┘
-                    ▼ HTTP/REST
-┌─────────────────────────────────────────┐
-│          Effect.ts Backend (Bun)        │
-│  Router → Service → Repository          │
-│  requireSession · requirePermission     │
-│  Drizzle ORM · HATEOAS · Audit Logging  │
-└─────────────────────────────────────────┘
-                    ▼
-┌─────────────────────────────────────────┐
-│             PostgreSQL                  │
-└─────────────────────────────────────────┘
+See [Development Setup](setup.md) for the supported bootstrap flow and
+[CI/CD](ci-cd.md) for current lifecycle details.
+
+## Request and Tenant Flow
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Web as TanStack Start
+    participant API as Effect API
+    participant Auth as Better Auth
+    participant DB as PostgreSQL
+
+    Browser->>Web: Request on platform or tenant hostname
+    Web->>API: /api request + original host/protocol
+    API->>API: Resolve platform or tenant context
+    API->>Auth: Resolve cookie session
+    Auth->>DB: Read session/user
+    API->>API: Apply feature and resource permission guards
+    API->>DB: Run tenant-scoped operation
+    DB-->>API: Result
+    API-->>Browser: JSON response
 ```
 
-## Authentication Flow
+`PLATFORM_HOST` identifies the platform administration host.
+`TENANT_BASE_DOMAIN` defines tenant subdomains. The web process forwards the
+original host and protocol only through its trusted same-origin proxy path;
+the API rejects unknown hosts before tenant data access.
 
-```
-User → Better Auth → Session Cookie
-                       ↓
-Frontend: Cookie-based session
-                       ↓
-Backend: requireSession → verify → userId from session
-```
+## Backend Layering
 
-## Backend Route Modules
+The two backend entrypoints are `src/effect/main.ts` and
+`src/effect/task-worker.ts`. Both compose explicit Effect layers from
+`src/effect/application/layers.ts`.
 
-The backend has the following modules in `backend/src/effect/modules/`:
-
-| Module | Purpose |
-|--------|---------|
-| **areas** | Zones within locations (shelves, bins, etc.) |
-| **audit-logs** | Audit trail for all entity changes |
-| **auth** | Authentication endpoints (Better Auth) |
-| **branding** | Branding/customization settings |
-| **categories** | Hierarchical product categorization |
-| **clients** | Client/customer management |
-| **fulfillment** | Order fulfillment, packing, and shipment tracking |
-| **health** | Health check endpoints (liveness, readiness) |
-| **inventory** | Stock quantities at locations/areas |
-| **locations** | Physical locations (warehouses, etc.) |
-| **orders** | Order management |
-| **photos** | Photo/image management for products |
-| **products** | Product catalog (SKU, name, category) |
-| **roles** | Role and permission management |
-| **stock-movements** | Stock movement tracking (transfers, adjustments) |
-| **suppliers** | Supplier management |
-| **users** | User management |
-
-## Backend Platform Layer
-
-Shared infrastructure in `backend/src/effect/platform/`:
-
-| Directory / File | Purpose |
-|------------------|---------|
-| **authorization.ts** | `requirePermission(resource, permission)` Effect |
-| **permission-provider.ts** | Cached permission lookups (1-min TTL) |
-| **session.ts** | `requireSession`, `getOptionalSession` Effects |
-| **better-auth.ts** | Better Auth integration (admin APIs) |
-| **errors.ts** | Domain error factories (`NotFoundError`, `BadRequestError`, etc.) + `respondJson` / `respondEmpty` |
-| **domain-errors.ts** | `isAppError` classification for typed error guards |
-| **messages.ts** | Localized message system + `LogProperties` type definitions |
-| **catalogs/** | Message catalogs per locale (`en.ts`, `fr.ts`, `de.ts`); `en.ts` is the source of truth for `MessageKey` |
-| **console-logging.ts** | Structured logging setup (`createLogger(scope)`) |
-| **audit.ts** | Fire-and-forget audit log writer |
-| **drizzle.ts** | Drizzle ORM database layer with connection pooling |
-| **drizzle-query.utils.ts** | Drizzle query helpers |
-| **drizzle-sort.utils.ts** | Sort-by utilities for list endpoints |
-| **hateoas.ts** | HATEOAS link utilities |
-| **pagination.utils.ts** | `toPaginatedResponse` and pagination helpers |
-| **bulk-operation.utils.ts** | `createBulkResultBuilder`, `findDuplicates`, `partitionByExistence` |
-| **service-tracer.ts** | `makeServiceTracer` — the project's chosen tracing abstraction |
-| **try-async.ts** | `makeTryAsync` — promise-to-Effect wrapper that maps to module infrastructure errors |
-| **from-null-or.ts** | Null coercion helper |
-| **request-context.ts** | Request ID, path, method, IP, locale |
-| **tracing.ts** | OpenTelemetry exporter wiring |
-| **db/** | Schema definitions, relations, migrations |
-
-!!! warning "Tracing abstraction is not `Effect.fn`"
-    `makeServiceTracer` captures outcome classification (`not_found` / `validation_error` / `failure`) and request-context attributes that `Effect.fn("span")` does not. **Do not migrate service methods to `Effect.fn`** — the service tracer was deliberately rebuilt for this purpose.
-
-## Shared-Types Workflow
-
-Shared DTO interfaces/enums are the contract between frontend and backend:
-
-```bash
-# 1. Generate barrel exports
-pnpm --filter @stocket/types barrels
-
-# 2. Build shared types
-pnpm --filter @stocket/types build
+```text
+HTTP router
+  → tenant/session/feature/permission guard
+  → request decoding
+  → module service
+  → repository or external adapter
+  → typed error mapping and response
 ```
 
-!!! warning "Keep shared types aligned"
-    Ensure backend DTOs and frontend hooks match `packages/types`.
+Most business modules contain some combination of:
+
+```text
+modules/<feature>/
+├── router.ts          # HTTP boundary, when the module is routable
+├── service.ts         # application/domain operations
+├── repository.ts      # Drizzle access
+├── mappers.ts         # database-to-contract mapping
+├── write.ts           # mutation coordination, when useful
+├── types.ts           # internal types
+└── *.errors.ts        # tagged domain/infrastructure failures
+```
+
+Request and response schemas generally live in `@stocketfr/types`; backend
+modules may keep internal schemas close to the implementation.
+
+Cross-cutting code is grouped by concern under `src/effect/platform/`:
+
+- `auth/` — session, permissions, and Better Auth adapter;
+- `db/` — Drizzle, committed SQL migrations, tenant helpers, transactions;
+- `http/` — tenant route wrappers, decoding, search params, and errors;
+- `observability/` — structured logging, localized catalogs, tracing;
+- `tenancy/` — host validation, tenant context, and feature access;
+- `storage.ts` — object-storage adapter.
+
+Every non-production API start runs committed SQL, data-marker preparation,
+Better Auth migration/repair, development-only hostname cleanup, then pending
+superadmin data migrations. Production runs that sequence only when
+`RUN_BETTER_AUTH_MIGRATIONS=true`. Default-role seeding and notification
+scanning run on every API startup regardless of that migration gate.
+
+## Durable Tasks and Product Imports
+
+Large product imports are asynchronous:
+
+```mermaid
+sequenceDiagram
+    participant UI
+    participant API
+    participant Storage
+    participant DB
+    participant Worker
+
+    UI->>API: Preview and optionally request a proposal
+    API-->>UI: Parsed rows, mappings, warnings, proposed plan
+    UI->>API: Approved plan + CSV + idempotency key
+    API->>Storage: Store input object
+    API->>DB: Enqueue task
+    API-->>UI: 202 + task Location
+    Worker->>DB: Lease queued task
+    Worker->>Storage: Read approved input
+    loop Each recoverable row
+        Worker->>DB: Apply row in its own transaction
+        Worker->>Storage: Fetch/store remote photo after row commit
+    end
+    Worker->>DB: Persist progress and terminal result
+    UI->>API: Poll task safely
+```
+
+PostgreSQL leases allow multiple workers to compete safely. Workers heartbeat,
+recover expired leases, throttle progress writes, and retry according to the
+environment configuration. A row failure is recorded in the partial result and
+does not roll back already committed rows. Remote-photo work happens after its
+row commit, so photo failure is also reported without undoing the product.
+Terminal observers clean up stored input after the database result settles; an
+object-storage lifecycle rule is still recommended as a crash fallback.
+
+## Shared Contract Workflow
+
+`packages/types` is not edited transitively from an application PR. A
+cross-repository contract change normally follows this order:
+
+1. change the package and add a Changeset;
+2. publish/use the pull request's immutable snapshot for coordinated testing;
+3. merge the package and its Changesets version PR;
+4. update the stable version pinned by backend/frontend;
+5. run consumer type checks and relevant cross-stack tests.
+
+The package exposes domain subpaths such as `products`, `tasks`, `features`,
+and `common`. Run `pnpm barrels` before `pnpm build` in `packages/types` when
+adding files matched by the barrel generator.
+
+## Authentication and Authorization
+
+Better Auth owns account/session endpoints at `/api/auth`. Tenant API handlers
+then apply three separate controls:
+
+1. host-to-tenant resolution;
+2. feature entitlement checks where applicable;
+3. resource `READ`/`WRITE` permission checks.
+
+Better Auth users are global accounts. A verified hostname selects a tenant,
+then a membership connects that account to the tenant; one account can belong
+to several tenants. Users may have multiple tenant roles and effective
+permissions are their union. Feature entitlements are independent of RBAC: a
+route can require both a resource permission and an enabled tenant feature.
+Platform superadmins use `/platform` and `/api/v1/superadmin/*`; being a tenant
+admin does not itself grant platform access.
 
 ## Domain Model
 
 ```mermaid
-classDiagram
-    class Product {
-        +uuid id
-        +string sku
-        +string name
-        +uuid category_id
-        +int reorder_point
-    }
-
-    class Location {
-        +uuid id
-        +string name
-        +LocationType type
-    }
-
-    class Area {
-        +uuid id
-        +uuid location_id
-        +uuid parent_id
-        +string name
-        +string code
-    }
-
-    class Inventory {
-        +uuid id
-        +uuid product_id
-        +uuid location_id
-        +uuid area_id
-        +int quantity
-    }
-
-    class Category {
-        +uuid id
-        +string name
-        +uuid parent_id
-    }
-
-    class Client {
-        +uuid id
-        +string name
-    }
-
-    class Supplier {
-        +uuid id
-        +string name
-    }
-
-    class Order {
-        +uuid id
-        +uuid client_id
-        +OrderStatus status
-    }
-
-    class StockMovement {
-        +uuid id
-        +uuid product_id
-        +uuid from_location_id
-        +uuid to_location_id
-        +int quantity
-    }
-
-    class Role {
-        +uuid id
-        +string name
-        +Permission[] permissions
-    }
-
-    class User {
-        +uuid id
-        +string email
-        +uuid role_id
-    }
-
-    Product --> Category : belongs to
-    Product --> Inventory : tracked in
-    Location --> Inventory : stores
-    Location --> Area : contains
-    Area --> Area : parent/children
-    Area --> Inventory : specifies placement
-    Order --> Client : placed by
-    Supplier --> Product : supplies
-    StockMovement --> Product : moves
-    StockMovement --> Location : from/to
-    User --> Role : has
+erDiagram
+    TENANT ||--o{ MEMBER : has
+    USER ||--o{ MEMBER : joins
+    MEMBER }o--o{ ROLE : assigned
+    TENANT ||--o{ PRODUCT : owns
+    CATEGORY ||--o{ PRODUCT : groups
+    LOCATION ||--o{ AREA : contains
+    AREA ||--o{ AREA : nests
+    PRODUCT ||--o{ INVENTORY : stocked_as
+    LOCATION ||--o{ INVENTORY : stores
+    AREA o|--o{ INVENTORY : pinpoints
+    CLIENT ||--o{ ORDER : places
+    ORDER ||--o{ ORDER_ITEM : contains
+    PRODUCT ||--o{ ORDER_ITEM : references
+    PRODUCT ||--o{ STOCK_MOVEMENT : moves
+    PRODUCT ||--o{ PHOTO : illustrates
+    TENANT ||--o{ BACKGROUND_TASK : queues
 ```
 
-### Core Entities
+Important invariants include:
 
-| Entity | Purpose |
-|--------|---------|
-| **Product** | Catalog item (what) - SKU, name, category, reorder point |
-| **Category** | Hierarchical product organization |
-| **Location** | Physical place (where) - warehouse, supplier, client, in-transit |
-| **Area** | Zone within a location (where exactly) - shelf, bin, cold storage |
-| **Inventory** | Stock quantity (how many) of a product at a location/area |
-| **Client** | Customer who places orders |
-| **Supplier** | External supplier providing products |
-| **Order** | Customer order for products |
-| **StockMovement** | Record of stock transfers, adjustments, and movements |
-| **Role** | Named set of permissions for authorization |
-| **User** | System user with assigned role |
-| **Photo** | Image associated with a product |
-| **AuditLog** | Record of entity changes for audit trail |
+- products describe catalog items; inventory describes quantity and placement;
+- an area belongs to one location and can nest within that location;
+- inventory area paths are tenant- and permission-filtered;
+- stock movements are ledger records; creating one does not mutate inventory,
+  and inventory adjustment does not currently create a movement automatically;
+- order transitions follow an explicit state machine;
+- audit writes are best-effort background inserts and are not part of the
+  business mutation transaction;
+- tenant IDs scope business data and repository queries.
 
-### Design Decisions
+## API Documentation
 
-1. **Product vs Inventory separation** - Products define what an item is. Inventory tracks quantities at locations.
-2. **Location types** - `WAREHOUSE`, `SUPPLIER`, `IN_TRANSIT`, `CLIENT` describe the category of place.
-3. **Areas are optional** - Inventory can reference just a Location, or optionally an Area for precise tracking.
-4. **Area hierarchy** - Areas support parent-child relationships (Zone A -> Shelf A1 -> Bin A1-1).
-5. **Unique constraint** - One inventory record per (product, location, area) combination.
-6. **Permission-based auth** - Roles contain granular permissions; `requirePermission` Effect enforces access per endpoint.
+The API is transitioning from hand-written `HttpRouter` modules to typed Effect
+`HttpApiBuilder` groups. Swagger is served at `/docs`, but currently documents
+only migrated groups (the health API). Do not treat it as a complete endpoint
+catalog until all legacy routers have migrated.
 
-## Key Patterns
+## Deployment Model
 
-| Pattern | Location | Purpose |
-|---------|----------|---------|
-| Repository | `backend/src/effect/modules/*/` | Data access via Drizzle ORM |
-| Service | `backend/src/effect/modules/*/` | Business logic as Effect services |
-| Router | `backend/src/effect/modules/*/` | HTTP route handlers |
-| requireSession | `backend/src/effect/platform/` | Session verification Effect |
-| requirePermission | `backend/src/effect/platform/` | Permission-based authorization |
-| AuditLogWriter | `backend/src/effect/platform/` | Fire-and-forget audit logging |
-| Domain Errors | `backend/src/effect/platform/` | Typed HTTP error factories |
-| HATEOAS | `backend/src/effect/platform/` | REST hypermedia links |
-| Layer Composition | `backend/src/effect/main.ts` | Dependency injection via Effect layers |
-| Shared DTOs | `packages/types/src/` | Backend/Frontend contracts |
+The source supports local development and a separately managed hosted
+topology. Backend and frontend CI does not automatically deploy after merge.
+A temporary manual-only path was used for an audited July 2026 production
+rollout, but it is not a persistent CD or standalone rollback surface. The
+infrastructure repository operates the single-box runtime. Its deploy helper
+can best-effort restore the previous image when its own Compose/readiness checks
+fail after replacement begins; later workflow checks do not trigger that
+recovery. See [CI/CD](ci-cd.md) for the exact boundary.

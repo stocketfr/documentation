@@ -1,39 +1,21 @@
-# Branding & Customization
+# Tenant Branding
 
-Customize the look and feel of your Stocket instance with branding settings.
+Branding is part of **Settings**. Reading it needs `SETTINGS.READ`; saving changes needs `SETTINGS.WRITE`.
 
-## Branding Settings
+The read endpoint is public only after the request hostname has resolved to a verified tenant. Branding changes are not currently emitted to the tenant audit log.
 
-The branding configuration controls how the application appears to all users:
+## Fields and effects
 
-| Setting | Description | Default |
-|---------|-------------|---------|
-| **App Name** | Application title shown in the header and browser tab | Stocket |
-| **Tagline** | Subtitle shown below the app name | — |
-| **Logo URL** | URL to the logo image displayed in the header | — |
-| **Favicon URL** | URL to the browser tab icon | — |
-| **Primary Color** | Main accent color used throughout the UI | — |
+| Field | Current behavior |
+| --- | --- |
+| App name | Sets the sidebar brand label/monogram and browser document title. |
+| Tagline | Sets metadata description; it is not rendered as a visible subtitle. |
+| Logo URL | Changes the sidebar logo. Login/signup/recovery pages keep the built-in Stocket mark. |
+| Favicon URL | Changes the browser icon. |
+| Primary color | Is persisted, but the current branding provider does not apply it to the visible theme. |
 
-!!! info "No Authentication Required to Read"
-    Branding settings are publicly readable so the login page can display your custom branding. Updating settings requires the **Settings: Write** permission.
+Use publicly reachable HTTPS asset URLs in deployed environments. Preview the sidebar and favicon after saving. Reads may be cached for up to five minutes, so other sessions do not always update immediately.
 
-## Updating Branding
+The current form is not visually disabled for a read-only Settings user, but the server rejects an attempted update without `SETTINGS.WRITE`.
 
-1. Navigate to **Settings**
-2. Find the **Branding** section
-3. Update the fields as needed:
-   - Enter your **App Name** (e.g., your company name)
-   - Add a **Tagline** (e.g., "Yacht Provisioning Management")
-   - Provide a **Logo URL** for your company logo
-   - Provide a **Favicon URL** for the browser tab icon
-   - Choose a **Primary Color** to match your brand
-4. Click **Save**
-
-Changes take effect immediately for all users.
-
-## Best Practices
-
-1. **Use a square logo** — Works best across header sizes and responsive layouts
-2. **Keep the app name short** — Long names may truncate on mobile devices
-3. **Test your color choice** — Ensure sufficient contrast with white text for accessibility
-4. **Host images reliably** — Use a CDN or stable URL for logo and favicon to avoid broken images
+For personal theme, language, account, and PWA behavior, see [Settings](settings.md).

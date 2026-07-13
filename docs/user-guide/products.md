@@ -1,123 +1,54 @@
-# Managing Products
+# Products
 
-Products are the core of the Stocket Inventory system. Each product represents an item in your yacht provisioning inventory.
+Products are tenant-scoped catalogue records. Open **Inventory → Products** (`/products`) to browse, filter, create, edit, and soft-delete them. Opening a card shows the product detail page.
 
-## Viewing Products
+## Browse and filter
 
-Navigate to the **Products** section from the sidebar to see all products.
+The card grid shows the thumbnail, name, SKU, category, active state, reorder point, and perishable state. Use search and category navigation to narrow the list. Category filtering includes descendants.
 
-<!-- ![Product List](../assets/screenshots/products/product-list.png) -->
+The list does not currently expose a deleted-products filter. A single soft delete offers a short **Undo** toast; there is no hard-delete action in the UI. Bulk mode can change status or delete selected rows on the current page. Although a restore bulk action exists, deleted rows cannot currently be selected from this list.
 
-The product list displays:
+## Create or edit
 
-- **SKU** - Unique product identifier
-- **Name** - Product name
-- **Category** - Product category
-- **Price** - Standard selling price
-- **Status** - Active or inactive
+The current form supports:
 
-!!! tip "Filtering Products"
-    Use the category sidebar to filter products by category. Click on a category to show only products in that category and its subcategories.
+- required SKU, name, and category;
+- unit and barcode;
+- standard cost and standard price;
+- reorder point;
+- active and perishable flags;
+- notes;
+- multiple photos.
 
-## Creating a Product
+SKUs are unique within the tenant. Changing a SKU does not break ID-based references. The form accepts JPEG, PNG, WebP, and GIF images up to 10 MiB, validates their content, and lets you delete uploaded photos; request overhead shares the same 10 MiB HTTP body cap.
 
-1. Click the **Create Product** button
-2. Fill in the required fields:
-   - **SKU** - Unique identifier (can be scanned via QR code)
-   - **Name** - Product name
-   - **Category** - Select from the category tree
+Some imported/API-created products can display additional metadata on their detail page, such as description or physical attributes. The current web form cannot edit those fields and does not manage a primary supplier or supplier SKU.
 
-<!-- ![Product Form](../assets/screenshots/products/product-form.png) -->
+The `/products/:id` view combines catalogue fields, status, pricing, reorder/perishable information, notes, and a photo gallery when those values exist.
 
-### Product Fields
+## QR scanning
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| SKU | Yes | Unique stock keeping unit (max 50 chars) |
-| Name | Yes | Product display name (max 200 chars) |
-| Category | Yes | Product category |
-| Description | No | Detailed description |
-| Volume (ml) | No | Volume in milliliters |
-| Weight (kg) | No | Weight in kilograms |
-| Dimensions (cm) | No | Dimensions, e.g., "10x10x5" |
-| Standard Cost | No | Purchase cost |
-| Standard Price | No | Selling price |
-| Markup Percentage | No | Markup percentage |
-| Reorder Point | No | Low stock threshold (defaults to 0) |
-| Primary Supplier | No | Link to a supplier record |
-| Supplier SKU | No | SKU used by the supplier |
-| Barcode | No | Barcode value, e.g., "0641628607549" |
-| Unit | No | Unit of measure, e.g., "units" |
-| Is Active | No | Product availability (defaults to true) |
-| Is Perishable | No | Expiration tracking (defaults to false) |
-| Notes | No | Additional notes |
+The scanner can fill the SKU field from a QR code when the browser provides camera access and native `BarcodeDetector` support. It is not a general-purpose barcode decoder in the current UI.
 
-### Using the QR Scanner
+## Reorder and inventory
 
-Click the QR code icon next to the SKU field to scan a barcode:
+The reorder point is compared with inventory quantity to identify low stock. Product creation alone does not create inventory; add rows from [Inventory](inventory.md). Deactivating a product keeps its existing data.
 
-<!-- ![QR Scanner](../assets/screenshots/products/qr-scanner.png) -->
+## Smart Import
 
-1. Allow camera access when prompted
-2. Point camera at the barcode
-3. SKU will be automatically filled
+**Import Products** appears only when the tenant has the `SMART_IMPORT` feature (enabled by default on Growth and Enterprise or by a platform override).
 
-## Editing Products
+1. Upload a normalized CSV or Sortly export.
+2. Optionally add up to 4,000 characters of instructions.
+3. Review the structured proposal. The importer can use an AI proposal layer; without a provider key it uses deterministic rules.
+4. Resolve categories, locations, areas/bins, duplicate variant SKUs, photos, missing locations, and rows marked for review.
+5. Adjust unlocked decisions, resolve blockers, and submit.
+6. Keep the separate backend task worker running while the page polls progress.
 
-1. Click on a product row to open the edit form
-2. Modify the fields as needed
-3. Click **Save** to apply changes
+The review shows confidence, suggestions, blockers, create/existing/default decisions, and photo handling. Processing is a durable PostgreSQL background task with idempotent submission. The result reports created, updated, skipped, error, and photo counts and can provide a row-error CSV.
 
-!!! warning "SKU Changes"
-    Changing a product's SKU may affect existing orders and inventory records. Use caution when modifying SKUs.
+There is no downloadable CSV template in the current UI. Keep the source CSV and the final result because imports cannot be rolled back as one operation.
 
-## Bulk Operations
+## Permissions
 
-Select multiple products using the checkboxes to perform bulk actions:
-
-- **Bulk Status Update** - Activate or deactivate multiple products
-- **Bulk Delete** - Soft delete multiple products
-- **Bulk Restore** - Restore deleted products
-
-### Performing Bulk Actions
-
-1. Select products using checkboxes
-2. Click the action button in the toolbar
-3. Confirm the action
-4. View results summary
-
-### Bulk CSV Import
-
-You can import multiple products at once using a CSV file:
-
-1. Click the **Import** button in the toolbar
-2. Download the CSV template to see the expected format
-3. Fill in the product data in the CSV file
-4. Upload the completed CSV file
-5. Review the import preview and confirm
-
-!!! tip "CSV Import Tips"
-    - Ensure SKUs are unique and not already in the system
-    - Category names must match existing categories exactly
-    - Leave optional fields empty if not applicable
-
-## Soft Delete and Restore
-
-Products are soft-deleted by default, meaning they can be restored:
-
-1. Delete a product using the delete button
-2. View deleted products by toggling the filter
-3. Click **Restore** to bring back a deleted product
-
-!!! info "Hard Delete"
-    Permanently deleting a product removes it from the database entirely. This action cannot be undone.
-
-## Product Images
-
-Upload images to help identify products:
-
-1. Click the image upload area
-2. Select an image file
-3. The image will be uploaded and displayed
-
-Supported formats: PNG, JPG, WebP
+Viewing needs `PRODUCTS.READ`; mutations need `PRODUCTS.WRITE`. Smart Import additionally needs `LOCATIONS.WRITE`, `INVENTORY.WRITE`, and the tenant feature. Category creation is embedded in this page and follows the corresponding catalogue authorization.

@@ -1,80 +1,21 @@
-# Managing Categories
+# Categories
 
-Categories help organize your products into a hierarchical structure for easy navigation and filtering.
+Categories organize products as a hierarchy. There is no separate Categories route in the current frontend; the category tree is embedded in **Inventory → Products**.
 
-## Category Hierarchy
+## Navigate and filter
 
-Categories can be nested to create a tree structure:
+Select a category folder to filter products. The result includes products in descendant categories. Move through the tree to focus on a branch or return to the top level for all products.
 
-```
-Galley Supplies
-├── Food & Beverages
-│   ├── Fresh Produce
-│   └── Dry Goods
-├── Cookware
-└── Utensils
+## Create
 
-Engine Room
-├── Spare Parts
-├── Lubricants
-└── Tools
-```
+From the Products page, create either a top-level category or a child of the selected category.
 
-## Viewing Categories
+- **Name** is required and must be unique among siblings.
+- **Description** is optional.
+- **Parent** is optional for a root category.
 
-The category tree is displayed in the sidebar when viewing products. Click on a category to:
+The frontend currently supports listing and creating categories only. It does not expose category rename, reparent, or deletion controls. Use stable names and choose the parent carefully.
 
-- View products in that category
-- See products in all subcategories
-- Expand/collapse child categories
+Category deletion exists at the API layer but is intentionally not documented as a user workflow: products can block it, and deleting a parent could orphan child categories in the current data model.
 
-## Creating a Category
-
-1. Navigate to **Categories** or click **Manage Categories**
-2. Click **Create Category**
-3. Fill in the fields:
-   - **Name** - Category name (required)
-   - **Description** - Optional description
-   - **Parent Category** - Select to create a subcategory
-4. Click **Save**
-
-!!! tip "Category Names"
-    Use clear, descriptive names. Category names must be unique within the same parent level.
-
-## Editing Categories
-
-1. Click the edit button on a category
-2. Modify the name, description, or parent
-3. Click **Save**
-
-!!! warning "Changing Parents"
-    Moving a category to a new parent will also move all its subcategories. The system prevents circular references (a category cannot be its own ancestor).
-
-## Deleting Categories
-
-Category deletion is subject to the following constraints:
-
-- **If products exist in the category**, the deletion will **fail**. You must reassign or remove all products from the category before deleting it.
-- **Subcategories** will have their parent reference set to null (they become top-level categories).
-
-!!! danger "Category Deletion"
-    You cannot delete a category that still contains products. The API will return an error. Move or delete all products in the category first, then delete the category.
-
-## Best Practices
-
-### Organizing Categories
-
-1. **Keep it shallow** - Aim for 2-3 levels of nesting
-2. **Be consistent** - Use similar naming patterns
-3. **Plan ahead** - Consider future growth
-
-### Example Structure
-
-For a yacht provisioning inventory:
-
-- **Galley** - Kitchen and dining supplies
-- **Housekeeping** - Linens, cleaning supplies
-- **Safety** - Safety equipment, first aid
-- **Engine Room** - Technical supplies
-- **Guest Amenities** - Toiletries, luxury items
-- **Deck** - Outdoor equipment
+Viewing the catalogue tree needs `PRODUCTS.READ`; category creation needs `PRODUCTS.WRITE`.

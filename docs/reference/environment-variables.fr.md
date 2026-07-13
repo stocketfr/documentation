@@ -1,136 +1,120 @@
 # Variables d'environnement
 
-Référence complète de toutes les variables d'environnement utilisées dans Stocket Inventory.
+Stocket utilise Infisical comme source opérationnelle des secrets. Les fichiers `backend/env.template` et `frontend/env.template` sont des inventaires de référence, pas des fichiers `.env` à valider. Dans chaque application, `pnpm start` passe par la CLI Infisical.
 
-## Backend API
+Ne validez jamais d'identifiants. Les valeurs de production sont rendues par le dépôt infrastructure et doivent être modifiées via le flux de gestion des secrets correspondant.
 
-Emplacement : `backend/.env`
+## API backend
 
-### Base de données
+### Cœur et hôtes
 
-| Variable | Requis | Description | Exemple |
-|----------|--------|-------------|---------|
-| `DATABASE_URL` | Oui* | Chaîne de connexion PostgreSQL complète | `postgresql://postgres:postgres@localhost:5432/stocket_inventory` |
-| `PGHOST` | Oui* | Hôte PostgreSQL | `localhost` |
-| `PGPORT` | Oui* | Port PostgreSQL | `5432` |
-| `PGUSER` | Oui* | Utilisateur PostgreSQL | `postgres` |
-| `PGPASSWORD` | Oui* | Mot de passe PostgreSQL | `postgres` |
-| `PGDATABASE` | Oui* | Nom de la base PostgreSQL | `stocket_inventory` |
+| Variable | Requise | Défaut/référence | Rôle |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | Oui | aucun | URL de connexion PostgreSQL. |
+| `NODE_ENV` | Oui | référence : `development` | L'API accepte `development`, `staging` ou `production` ; le worker l'exige aussi. Les tests définissent leur propre contexte. |
+| `PORT` | API : oui | référence : `8080` | Port de l'API, entier de 1 à 65535. |
+| `TENANT_BASE_DOMAIN` | Oui | `stocket.fr` | Domaine parent utilisé pour résoudre les tenants. |
+| `PLATFORM_HOST` | Oui | `app.stocket.fr` | Hôte réservé à la console plateforme. |
+| `RESERVED_TENANT_SLUGS` | Non | liste intégrée | Slugs séparés par des virgules interdits aux tenants. |
+| `CORS_ORIGIN` | Oui | `http://localhost:3000` | Origines non vides séparées par des virgules. `*` est refusé en production (utilisez aussi des origines explicites en staging) ; les origines tenant vérifiées sont autorisées dynamiquement. |
+| `FRONTEND_URL` | Oui | `http://localhost:3000` | Origine(s) utilisées par l'authentification et les liens e-mail. |
 
-*Soit `DATABASE_URL` soit les variables `PG*` individuelles sont requises.
+En développement local, `localhost` est l'hôte plateforme et les tenants utilisent `<slug>.localhost:3000`.
 
-### Authentification
+### Authentification et scripts d'administration explicites
 
-| Variable | Requis | Description | Exemple |
-|----------|--------|-------------|---------|
-| `BETTER_AUTH_SECRET` | Oui | Chaîne aléatoire de 32+ octets pour la signature de session | `<sortie de openssl rand -base64 32>` |
-| `BETTER_AUTH_URL` | Oui | URL du serveur backend pour Better Auth | `http://localhost:8080` |
+| Variable | Requise | Rôle |
+| --- | --- | --- |
+| `BETTER_AUTH_SECRET` | Oui | Secret de signature Better Auth, fort et géré hors tests. |
+| `BETTER_AUTH_URL` | Oui | Origine publique du backend/auth, normalement `http://localhost:8080` en local. |
+| `BETTER_AUTH_COOKIE_DOMAIN` | Non | Surcharge explicite du domaine partagé ; sans elle, auth dérive si possible un suffixe commun auth/frontend. |
+| `RUN_BETTER_AUTH_MIGRATIONS` | Non (garde production) | En production, `true` active SQL commité, préparation des marqueurs, migration/réparation Better Auth et migrations superadmin en attente. Hors production, la séquence s'exécute automatiquement ; le nettoyage des hôtes reste propre au développement. |
+| `SUPERADMIN_EMAIL` | Migration/seed en attente | E-mail utilisé par les migrations de données en attente ou le script explicite. |
+| `SUPERADMIN_NAME` | Migration/seed en attente | Nom d'un compte nouvellement créé. |
+| `SUPERADMIN_PASSWORD` | Migration/seed en attente | Mot de passe en clair alternatif ; préférez le hash. |
+| `SUPERADMIN_PASSWORD_HASH` | Migration/seed en attente | Hash imprimé par `superadmin:hash-password`. |
+| `SUPERADMIN_ROTATE_PASSWORD` | Non | Autorise le seed explicite et la migration `0000` à remplacer le mot de passe ; `0001` force la rotation. |
+| `SUPERADMIN_ALLOW_TENANT_MEMBER` | Non | Doit valoir `true` pour promouvoir volontairement un compte déjà membre d'un tenant. |
 
-### Serveur
+Les valeurs superadmin sont consommées si les marqueurs de migration `0000_seed_platform_superadmin` ou `0001_reconcile_platform_superadmin_password` sont encore en attente ; la migration de réconciliation force la rotation. Elles servent aussi à l'exécution explicite de `src/scripts/seed-superadmin.ts`. Le seed tenant accepte `TENANT_ADMIN_EMAIL`, `TENANT_ADMIN_NAME`, `TENANT_ADMIN_PASSWORD` ou `TENANT_ADMIN_PASSWORD_HASH`, et `TENANT_ADMIN_ROTATE_PASSWORD`. Ciblez un tenant existant avec `TENANT_ADMIN_TENANT_ID` ou `TENANT_ADMIN_TENANT_SLUG` (jamais les deux) ; `TENANT_ADMIN_TENANT_HOSTNAME` définit éventuellement son hôte principal. Sans cible, il choisit l'unique tenant, demande parmi plusieurs, ou crée le tenant par défaut s'il n'en existe aucun. Il remplace les données de démo du tenant choisi.
 
-| Variable | Requis | Défaut | Description |
-|----------|--------|--------|-------------|
-| `PORT` | Non | `8080` | Port du serveur API |
-| `NODE_ENV` | Non | `development` | Mode d'environnement |
-| `CORS_ORIGIN` | Non | `http://localhost:3000` | Origine CORS autorisée |
-| `FRONTEND_URL` | Non | `http://localhost:3000` | URL du frontend pour les redirections |
+### Réglage de la connexion base
 
-### Exemple `.env`
+| Variable | Défaut | Rôle |
+| --- | --- | --- |
+| `DB_SSL` | `false` | Active TLS pour PostgreSQL. |
+| `DB_SSL_REJECT_UNAUTHORIZED` | `true` | Valide le certificat serveur lorsque TLS est actif. |
+| `DB_POOL_MAX` | `20` | Maximum positif par pool ; Better Auth et Drizzle créent chacun leur pool. |
 
-```bash
-# Base de données
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/stocket_inventory
+### E-mail et journalisation
 
-# Authentification
-BETTER_AUTH_SECRET=<chaîne aléatoire de 32+ octets>
-BETTER_AUTH_URL=http://localhost:8080
+| Variable | Requise | Défaut/référence | Rôle |
+| --- | --- | --- | --- |
+| `RESEND_API_KEY` | Staging/production | vide | Identifiant Resend. En développement/test, les e-mails sont journalisés. |
+| `EMAIL_FROM` | Staging/production | référence template : `Stocket <no-reply@mail.stocket.fr>` | Identité explicite. Le fallback développement/test est `Stocket <onboarding@resend.dev>`. |
+| `LOG_FORMAT` | Non | `text` | `text` ou `json` ; l'infrastructure utilise `json`. |
+| `LOG_LEVEL` | Non | défaut runtime | Seuil de logs Effect. |
+| `LOG_SQL` | Non | `off` | `off`, `summary` ou `full` ; évitez full autour de données sensibles. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Non | `http://localhost:4318/v1/traces` | Endpoint HTTP OTLP des traces. |
 
-# Serveur
-PORT=8080
-NODE_ENV=development
-CORS_ORIGIN=http://localhost:3000
-FRONTEND_URL=http://localhost:3000
-```
+### Stockage objet
 
-## Frontend Web
+Ces six réglages sont requis au démarrage de l'API et du worker dans la composition globale actuelle, même si la fonctionnalité immédiate n'utilise ni photo ni import.
 
-Emplacement : `frontend/.env`
+| Variable | Référence locale | Rôle |
+| --- | --- | --- |
+| `S3_ENDPOINT` | `http://localhost:9000` | Endpoint compatible S3. |
+| `S3_REGION` | `us-east-1` | Région du bucket. |
+| `S3_ACCESS_KEY_ID` | `minio` | Clé d'accès. |
+| `S3_SECRET_ACCESS_KEY` | `minio123` | Clé secrète. |
+| `S3_BUCKET` | `stocket-local` | Bucket existant. |
+| `S3_FORCE_PATH_STYLE` | `true` | Requis pour MinIO local ; généralement false en hébergé. |
 
-### API
+### Smart Import
 
-| Variable | Requis | Description | Exemple |
-|----------|--------|-------------|---------|
-| `VITE_API_BASE_URL` | Oui | URL de l'API backend | `http://localhost:8080/api/v1` |
+| Variable | Défaut | Rôle |
+| --- | --- | --- |
+| `PRODUCT_IMPORT_LLM_ENABLED` | `true` | Active la couche optionnelle de propositions IA. |
+| `OPENAI_API_KEY` | vide | Identifiant fournisseur. Vide, les propositions déterministes prennent le relais. |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base d'une API compatible OpenAI. |
+| `PRODUCT_IMPORT_LLM_MODEL` | `gpt-5-mini` | Modèle de proposition. |
+| `PRODUCT_IMPORT_LLM_TIMEOUT_MS` | `15000` | Délai positif en millisecondes. |
 
-### Monitoring
+### Worker de tâches
 
-| Variable | Requis | Description | Exemple |
-|----------|--------|-------------|---------|
-| `VITE_SENTRY_DSN` | Non | DSN Sentry pour le suivi des erreurs | `https://xxx@sentry.io/xxx` |
-| `SENTRY_AUTH_TOKEN` | Non | Token d'authentification Sentry pour les source maps | `sntrys_xxx...` |
+L'API place les tâches durables dans PostgreSQL ; `pnpm start:worker` les exécute séparément. Le worker n'utilise pas auth, mais son graphe importe actuellement cette configuration avec empressement. Il exige donc `NODE_ENV`, `TENANT_BASE_DOMAIN`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` et `FRONTEND_URL` en plus de la base, du stockage et des tâches (plus l'e-mail de staging/production). `PLATFORM_HOST` n'est pas requis par le worker. Gardez les valeurs partagées alignées jusqu'à suppression de ce couplage.
 
-### Exemple `.env`
+| Variable | Défaut | Contrainte |
+| --- | ---: | --- |
+| `BACKGROUND_TASK_CONCURRENCY` | `4` | 1 à 32 tâches. |
+| `BACKGROUND_TASK_LEASE_MS` | `60000` | Durée de bail positive. |
+| `BACKGROUND_TASK_HEARTBEAT_MS` | `15000` | Doit être inférieure au bail. |
+| `BACKGROUND_TASK_POLL_MS` | `1000` | Intervalle d'attente positif. |
+| `BACKGROUND_TASK_RECOVERY_MS` | `30000` | Intervalle positif de récupération. |
+| `BACKGROUND_TASK_RETRY_DELAY_MS` | `30000` | Délai de nouvel essai positif. |
+| `BACKGROUND_TASK_PROGRESS_THROTTLE_MS` | `500` | Limitation positive des écritures de progression. |
 
-```bash
-# API
-VITE_API_BASE_URL=http://localhost:8080/api/v1
+## Runtime SSR frontend
 
-# Monitoring (optionnel)
-VITE_SENTRY_DSN=<dsn sentry>
-SENTRY_AUTH_TOKEN=<token auth sentry>
-```
+| Variable | Requise | Défaut/référence | Rôle |
+| --- | --- | --- | --- |
+| `INTERNAL_API_ORIGIN` | Oui | `http://localhost:8080` | Origine serveur-à-serveur pour le SSR et le proxy Vite. Le navigateur appelle toujours `/api/v1` sur la même origine. |
+| `WEB_URL` | Oui | `http://localhost:3000` | Origine web canonique. |
+| `TENANT_BASE_DOMAIN` | Oui | `stocket.fr` | Doit correspondre au modèle d'hôtes du backend. |
+| `PLATFORM_HOST` | Oui | `app.stocket.fr` | Doit correspondre à l'hôte plateforme backend. |
+| `TRUSTED_PROXY` | Non | vide | `1` uniquement derrière un proxy de confiance qui fixe les en-têtes forwarded. |
+| `PORT` | Non | `3000` | Port du serveur SSR de production. |
+| `HOST` | Non | `127.0.0.1` | Adresse d'écoute du serveur SSR. |
+| `VITE_CSP_NONCE` | Non | vide | Nonce optionnel de build compilé via `import.meta.env` et transmis au routeur. |
 
-## Configuration des fichiers d'environnement
+Le chemin actuel des requêtes n'utilise pas `VITE_API_BASE_URL`.
 
-**Backend :**
+## Réglages réservés aux tests
 
-```bash
-cp backend/.env.template backend/.env
-```
+- Les tests d'intégration backend utilisent `TEST_DATABASE_URL` s'il est fourni.
+- Le smoke test optionnel contre un vrai MinIO ne s'exécute qu'avec `RUN_MINIO_STORAGE_SMOKE=true` et un service accessible.
+- La requête de seed E2E envoie `x-e2e-seed-secret`. Le développement l'autorise sans secret configuré ; les autres environnements hors production exigent un `E2E_SEED_SECRET` correspondant ; la production désactive toujours l'endpoint.
+- Le seed E2E backend reconnaît `E2E_DATABASE_URL`, `E2E_TENANT_SLUG`, `E2E_TENANT_NAME`, `E2E_TENANT_HOSTNAME` et `E2E_USER_EMAIL`.
+- Les tests frontend utilisent `E2E_FRONTEND_ORIGIN` (référence : `http://e2e.localhost:3000`) et les variables définies par Playwright et le workflow CI.
 
-**Frontend :**
-
-```bash
-echo "VITE_API_BASE_URL=http://localhost:8080/api/v1" > frontend/.env
-```
-
-!!!tip "Infisical CLI"
-    Les deux dépôts disposent d'un `justfile` avec une tâche `env` utilisant Infisical CLI :
-    ```bash
-    cd backend && just env
-    cd frontend && just env
-    ```
-    Ceci exécute `infisical export --env=dev --format=dotenv > .env` pour injecter les secrets depuis Infisical.
-
-## Secrets CI/CD
-
-Secrets GitHub Actions requis pour la CI/CD :
-
-| Secret | Description |
-|--------|-------------|
-| `BETTER_AUTH_SECRET` | Secret Better Auth pour les tests CI |
-
-## Déploiement de la documentation
-
-La documentation est déployée via GitHub Pages :
-
-- **URL du site :** https://stocketfr.github.io/documentation/
-- **Dépôt :** https://github.com/stocketfr/documentation
-
-## Considérations de production
-
-### Sécurité
-
-- Ne jamais committer les fichiers `.env`
-- Utiliser la gestion de secrets en production
-- Faire une rotation des clés régulièrement
-
-### Better Auth
-
-- Utiliser un `BETTER_AUTH_SECRET` fort et unique en production (32+ octets aléatoires)
-- Définir `BETTER_AUTH_URL` vers l'URL de votre backend de production
-
-### Base de données
-
-- Utiliser le connection pooling en production
-- Activer SSL pour les connexions à la base de données
+Les identifiants de test et valeurs de seed ne doivent jamais être réutilisés en environnement déployé.

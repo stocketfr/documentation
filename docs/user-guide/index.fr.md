@@ -1,76 +1,42 @@
-# Guide Utilisateur
+# Guide utilisateur
 
-Ce guide couvre l'utilisation de toutes les fonctionnalités du système Stocket Inventory.
+Stocket est une application d'inventaire multi-tenant fondée sur les hôtes. Ouvrez `https://<tenant>.stocket.fr` pour un espace tenant ; les administrateurs plateforme utilisent l'hôte dédié. En local : `http://<slug>.localhost:3000` et `http://localhost:3000`.
 
-## Aperçu
+## Navigation principale
 
-Stocket Inventory est un système de gestion d'inventaire pour l'approvisionnement des yachts, conçu pour gérer les articles de luxe, le linge, les cosmétiques et les commodités auprès de multiples fournisseurs.
+- **Tableau de bord** — compteurs, stock faible, mouvements, commandes et graphique par emplacement.
+- **Inventaire** — Produits, Emplacements et lignes d'Inventaire actuelles.
+- **Opérations** — Clients, Fournisseurs, Commandes et registre des Mouvements.
+- **Administration** — Journaux d'audit, Utilisateurs et Rôles selon vos permissions.
+- **Paramètres** — apparence, langue, compte et personnalisation du tenant.
 
-## Fonctionnalités Principales
+La plupart des liens groupés suivent permissions et fonctionnalités. Paramètres reste toujours visible, et le fallback sans rôle peut montrer Dashboard/Paramètres alors que la garde stricte redirige ; la visibilité n'est pas une garantie d'autorisation. `Ctrl+B` ou `Cmd+B` masque/affiche la barre. Il n'existe pas de recherche globale.
 
-### Produits
+## Ordre de configuration conseillé
 
-Gérez vos articles d'inventaire avec des informations détaillées incluant SKUs, prix, spécifications physiques et liens fournisseurs.
+1. Un administrateur plateforme crée le tenant et son premier administrateur.
+2. L'administrateur tenant configure les [utilisateurs et rôles](users-roles.md) et les [paramètres](settings.md).
+3. Créez les [catégories et produits](products.md), puis les [emplacements et zones](locations.md).
+4. Ajoutez l'[inventaire](inventory.md), les clients et fournisseurs.
+5. Utilisez les [commandes](orders.md) et le [registre des mouvements](stock-movements.md) selon votre flux.
 
-[:octicons-arrow-right-24: Produits](products.md)
+## Frontière importante du modèle
 
-### Catégories
+Inventaire et mouvements sont actuellement séparés. Ajouter ou ajuster une ligne d'inventaire ne crée pas de mouvement, et enregistrer un mouvement ne modifie pas l'inventaire. Un transfert exige donc des mises à jour explicites à la source et à la destination, plus éventuellement une écriture de registre.
 
-Organisez les produits dans une structure de catégories hiérarchique avec imbrication illimitée.
+## Navigateur et fonctionnement hors ligne
 
-[:octicons-arrow-right-24: Catégories](categories.md)
+Stocket peut être installé comme PWA. Le service worker précharge page de secours, manifeste et icônes et peut mettre en cache les ressources statiques récupérées. Les pages applicatives réussies et les données API ne sont ni stockées ni synchronisées pour un usage hors ligne. Toute opération exige une connexion.
 
-### Fournisseurs
+Le scanner utilise `BarcodeDetector` natif et n'accepte actuellement que les résultats QR. Sa disponibilité dépend du navigateur, de l'appareil, des permissions et d'un contexte sécurisé.
 
-Gérez les fiches fournisseurs, les coordonnées et associez les fournisseurs aux produits.
+## Aide par tâche
 
-### Clients
-
-Suivez les informations clients pour les commandes d'approvisionnement des yachts.
-
-### Emplacements
-
-Gérez les entrepôts, les locaux fournisseurs, les yachts clients et les articles en transit.
-
-[:octicons-arrow-right-24: Emplacements](locations.md)
-
-### Zones
-
-Définissez des zones, étagères et emplacements au sein des localisations pour un suivi précis de l'inventaire.
-
-[:octicons-arrow-right-24: Zones](areas.md)
-
-### Inventaire
-
-Suivez les quantités en stock à travers les emplacements avec numéros de lot et dates d'expiration.
-
-[:octicons-arrow-right-24: Inventaire](inventory.md)
-
-### Mouvements de Stock
-
-Suivez les mouvements de stock entre emplacements pour une traçabilité complète de l'inventaire.
-
-### Commandes
-
-Suivez les commandes d'approvisionnement des yachts tout au long de leur cycle de vie complet, du brouillon à la livraison.
-
-[:octicons-arrow-right-24: Commandes](orders.md)
-
-### Rôles & Utilisateurs
-
-Gérez les comptes utilisateurs et le contrôle d'accès basé sur les rôles.
-
-### Journaux d'Audit
-
-Consultez l'historique complet des modifications avec les différences avant/après et le suivi des utilisateurs.
-
-[:octicons-arrow-right-24: Journaux d'Audit](audit-logs.md)
-
-## Astuces Rapides
-
-!!! tip "Raccourcis Clavier"
-    - `Ctrl/Cmd + K` - Ouvrir la recherche
-    - `Ctrl/Cmd + B` - Basculer la barre latérale
-
-!!! tip "Scan QR"
-    Utilisez le bouton de code QR à côté des champs SKU pour scanner les codes-barres avec votre caméra.
+- [Authentification et récupération](authentication.md)
+- [Tableau de bord](dashboard.md)
+- [Produits et Smart Import](products.md)
+- [Emplacements, zones et inventaire](locations.md)
+- [Clients](clients.md) et [fournisseurs](suppliers.md)
+- [Commandes](orders.md) et [mouvements](stock-movements.md)
+- [Utilisateurs et rôles](users-roles.md), [audit](audit-logs.md) et [paramètres](settings.md)
+- [Administration plateforme](platform-administration.md)

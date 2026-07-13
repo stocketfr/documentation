@@ -1,28 +1,27 @@
 # Référence
 
-Documentation de référence technique pour Stocket Inventory.
+Cette section rassemble les réglages d'exécution, les commandes des dépôts et les diagnostics rapides.
 
-## Contenu
+## Référence d'exécution
 
-- [Variables d'environnement](environment-variables.md) - Toutes les options de configuration
-- [Commandes CLI](cli-commands.md) - Commandes disponibles en ligne de commande
-- [Dépannage](troubleshooting.md) - Problèmes courants et solutions
+- [Variables d'environnement](environment-variables.md) décrit les réglages du backend, du worker, du web, du stockage et des tests.
+- [Commandes CLI](cli-commands.md) répertorie les commandes par dépôt. Exécutez-les depuis le dépôt indiqué sauf mention contraire.
+- [Dépannage](troubleshooting.md) couvre les problèmes les plus courants de l'espace de travail local.
 
-## Liens rapides
+## API et contrats
 
-### Documentation API
+Les routes applicatives sont sous `/api/v1`, préfixe qui comprend surfaces tenant, plateforme/superadmin, opérationnelles et de test hors production. Better Auth est sous `/api/auth`. Swagger UI sur `/docs` ne décrit actuellement que la santé. Les routeurs montés sont la vérité runtime et leurs schémas `@stocketfr/types` correspondants définissent les payloads. Tout schéma exporté n'est pas monté : fulfillment reste par exemple un prototype.
 
-L'API est documentée via Swagger UI :
+Les applications installent les paquets publiés depuis GitHub Packages :
 
-- **Local :** http://localhost:8080/api/docs
-- **OpenAPI JSON :** http://localhost:8080/api/docs-json
-
-### Types partagés
-
-Les interfaces/enums DTO partagés vivent dans `packages/types` :
-
-```bash
-pnpm --filter @stocket/types build
+```json
+{
+  "dependencies": {
+    "@stocket/types": "npm:@stocketfr/types@1.8.0"
+  }
+}
 ```
 
-Les types sont dans `packages/types/src/`.
+`@stocket/types` est l'alias côté consommateur. Dans le dépôt packages, les commandes utilisent le nom publié, par exemple `pnpm --filter @stocketfr/types build`.
+
+Pour les responsabilités et frontières d'exécution de chaque dépôt et module, consultez la [carte des projets et modules](../development/project-map.md).

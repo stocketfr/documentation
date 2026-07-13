@@ -1,632 +1,378 @@
 # API Development
 
-This guide covers Effect.ts development patterns for the Stocket Inventory backend, which runs on Bun with Drizzle ORM and PostgreSQL.
+The Stocket backend runs on Node.js 22 with Effect, Drizzle ORM, and PostgreSQL. `tsx` runs the development entry points; esbuild produces Node 22 CommonJS bundles for production. Bun is not the backend runtime.
 
-## Module Structure
+## Runtime and application composition
 
-Each feature follows this structure:
+The entry points stay deliberately small:
 
-```
-modules/<feature>/
-├── router.ts              # HTTP route handlers
-├── service.ts             # Business logic (Effect service)
-├── repository.ts          # Data access (Drizzle queries)
-├── <feature>.schema.ts    # Validation schemas (Effect Schema)
-├── <feature>.errors.ts    # Domain error definitions
-└── <feature>.utils.ts     # Mappers, helpers (optional)
-```
+- `src/effect/main.ts` validates `NODE_ENV` and `PORT`, builds the application and HTTP layers, then calls `NodeRuntime.runMain()`.
+- `src/effect/task-worker.ts` builds the durable-task worker without starting an HTTP server.
+- `src/effect/application/layers.ts` owns service and platform layer composition.
+- `src/effect/application/startup.ts` owns startup migrations, default-role seeding, and the notification scanner.
+- `src/effect/modules/index.ts` mounts module routers under `/api/v1`.
+- `src/effect/http/app.ts` combines the routers, Better Auth, health API, Swagger, and middleware.
 
-## Creating a New Module
-
-### 1. Schema Definitions
-
-Schemas define validation for request bodies and query parameters using Effect Schema:
+The API entry point follows this shape:
 
 ```typescript
-// products.schema.ts
-import { Schema } from "effect";
+const applicationLayer = makeApplicationLayer({
+  nodeEnv,
+  runBetterAuthMigrations:
+    process.env.RUN_BETTER_AUTH_MIGRATIONS === 'true',
+});
 
-export const CreateProductSchema = Schema.Struct({
-  sku: Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(50)),
-  name: Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(200)),
-  category_id: Schema.optionalWith(Schema.NullOr(Schema.UUID), {
-    default: () => null,
-  }),
-  standard_cost: Schema.optionalWith(Schema.NullOr(Schema.Number), {
-    default: () => null,
-  }),
-}).annotations({ identifier: "CreateProduct" });
-
-export const ProductsQuerySchema = Schema.Struct({
-  page: Schema.optionalWith(Schema.NumberFromString, { default: () => 1 }),
-  limit: Schema.optionalWith(Schema.NumberFromString, { default: () => 20 }),
-  search: Schema.optionalWith(Schema.String, { default: () => "" }),
-  sortBy: Schema.optionalWith(Schema.String, { default: () => "created_at" }),
-  sortOrder: Schema.optionalWith(Schema.Literal("asc", "desc"), {
-    default: () => "desc" as const,
-  }),
-}).annotations({ identifier: "ProductsQuery" });
-```
-
-!!! tip "Schema Annotations"
-    Always add `.annotations({ identifier: '...' })` to schemas. The identifier appears in validation error messages and tracing spans, making debugging much easier.
-
-### 2. Domain Errors
-
-Define typed errors that map to HTTP status codes:
-
-```typescript
-// products.errors.ts
-import { NotFoundError, BadRequestError, InternalError } from "../platform/errors";
-
-export class ProductNotFound extends NotFoundError("ProductNotFound")<{
-  readonly productId: string;
-}> {}
-
-export class ProductSkuConflict extends BadRequestError("ProductSkuConflict")<{
-  readonly sku: string;
-}> {}
-
-export class ProductsInfrastructureError extends InternalError(
-  "ProductsInfrastructureError"
-)<{}> {}
-```
-
-Each error factory sets the HTTP status code automatically:
-
-| Factory | Status | Use Case |
-|---------|--------|----------|
-| `NotFoundError` | 404 | Entity not found |
-| `BadRequestError` | 400 | Validation, conflicts |
-| `ConflictError` | 409 | Duplicate resources |
-| `ForbiddenError` | 403 | Insufficient permissions |
-| `UnauthorizedError` | 401 | Not authenticated |
-| `InternalError` | 500 | Infrastructure failures |
-
-### 3. Repository
-
-Repositories handle data access using Drizzle ORM:
-
-```typescript
-// repository.ts
-import { Effect } from "effect";
-import { DrizzleDatabase } from "../../platform/drizzle";
-import { products, categories } from "../../platform/db/schema";
-import { eq, isNull, and } from "drizzle-orm";
-
-export class ProductsRepository extends Effect.Service<ProductsRepository>()(
-  "ProductsRepository",
-  {
-    effect: Effect.gen(function* () {
-      const db = yield* DrizzleDatabase;
-
-      const tryAsync = makeTryAsync(
-        (error) => new ProductsInfrastructureError({ cause: error })
-      );
-
-      const findById = (id: string) =>
-        tryAsync(() =>
-          db.query.products.findFirst({
-            where: and(eq(products.id, id), isNull(products.deleted_at)),
-            with: { category: true },
-          })
-        );
-
-      const create = (data: typeof products.$inferInsert) =>
-        tryAsync(() =>
-          db.insert(products).values(data).returning().then((r) => r[0]!)
-        );
-
-      return { findById, create /* ... */ };
-    }),
-    dependencies: [DrizzleDatabase.Default],
-  }
-) {}
-```
-
-!!! note "Error wrapping"
-    The `makeTryAsync()` helper converts async database calls into typed Effects. If a query fails, it wraps the error in the module's infrastructure error (e.g., `ProductsInfrastructureError`), keeping error types explicit in the return channel.
-
-### 4. Service
-
-Services contain business logic and depend on repositories and other services:
-
-```typescript
-// service.ts
-import { Effect } from "effect";
-
-export class ProductsService extends Effect.Service<ProductsService>()(
-  "ProductsService",
-  {
-    effect: Effect.gen(function* () {
-      const repo = yield* ProductsRepository;
-      const categoriesService = yield* CategoriesService;
-
-      const getProductOrFail = (id: string) =>
-        Effect.gen(function* () {
-          const product = yield* repo.findById(id);
-          if (!product) {
-            return yield* Effect.fail(
-              new ProductNotFound({ productId: id, messageKey: "products.notFound" })
-            );
-          }
-          return product;
-        });
-
-      const create = (dto: CreateProduct, userId: string) =>
-        Effect.gen(function* () {
-          // Validate category exists
-          if (dto.category_id) {
-            yield* categoriesService.existsById(dto.category_id);
-          }
-
-          // Check SKU uniqueness
-          const existing = yield* repo.findBySku(dto.sku);
-          if (existing) {
-            return yield* Effect.fail(
-              new ProductSkuConflict({ sku: dto.sku, messageKey: "products.skuConflict" })
-            );
-          }
-
-          return yield* repo.create({
-            ...dto,
-            created_by: userId,
-            updated_by: userId,
-          });
-        }).pipe(Effect.withSpan("ProductsService.create"));
-
-      return { create, getProductOrFail /* ... */ };
-    }),
-    dependencies: [ProductsRepository.Default, CategoriesService.Default],
-  }
-) {}
-```
-
-### 5. Router
-
-Routers define HTTP endpoints and wire together authorization, validation, and service calls:
-
-```typescript
-// router.ts
-import { HttpRouter, HttpServerRequest } from "@effect/platform";
-import { Effect } from "effect";
-
-export const ProductsRouter = HttpRouter.empty.pipe(
-  // GET /products — paginated list
-  HttpRouter.get("/products", respondJson(
-    Effect.gen(function* () {
-      yield* requirePermission(Resource.PRODUCTS, Permission.READ);
-      const query = yield* searchParams(ProductsQuerySchema);
-      const service = yield* ProductsService;
-      return yield* service.findAllPaginated(query);
-    })
-  )),
-
-  // POST /products — create
-  HttpRouter.post("/products", respondJson(
-    Effect.gen(function* () {
-      yield* requirePermission(Resource.PRODUCTS, Permission.WRITE);
-      const body = yield* HttpServerRequest.schemaBodyJson(CreateProductSchema);
-      const session = yield* requireSession;
-      const service = yield* ProductsService;
-
-      const product = yield* service.create(body, session.user.id);
-
-      // Fire-and-forget audit log
-      const audit = yield* AuditLogWriter;
-      yield* audit.log({
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.PRODUCT,
-        entityId: product.id,
-      });
-
-      return product;
-    }),
-    { status: 201 }
-  )),
-
-  // PUT /products/:id — update
-  HttpRouter.put("/products/:id", respondJson(
-    Effect.gen(function* () {
-      yield* requirePermission(Resource.PRODUCTS, Permission.WRITE);
-      const { id } = yield* HttpRouter.schemaPathParams(
-        Schema.Struct({ id: Schema.UUID })
-      );
-      const body = yield* HttpServerRequest.schemaBodyJson(UpdateProductSchema);
-      const session = yield* requireSession;
-      const service = yield* ProductsService;
-      return yield* service.update(id, body, session.user.id);
-    })
-  )),
-
-  // DELETE /products/:id — soft delete
-  HttpRouter.delete("/products/:id", respondJson(
-    Effect.gen(function* () {
-      yield* requirePermission(Resource.PRODUCTS, Permission.WRITE);
-      const { id } = yield* HttpRouter.schemaPathParams(
-        Schema.Struct({ id: Schema.UUID })
-      );
-      const session = yield* requireSession;
-      const service = yield* ProductsService;
-      return yield* service.delete(id, session.user.id);
-    })
-  )),
+const main = Layer.launch(makeHttpServerLayer(port)).pipe(
+  Effect.provide(applicationLayer),
+  Effect.provide(runtimeLoggingLayer),
 );
+
+NodeRuntime.runMain(main);
 ```
 
-### Route Handler Pattern
+`platformLayer` provides database, Better Auth, and object storage services. Feature services are composed above that layer, followed by module services and cross-module workflows. Add new wiring in `application/layers.ts`, not in the entry point.
 
-Every route handler follows the same sequence:
+## Module anatomy and shared contracts
 
-1. **Authorize** — `yield* requirePermission(Resource, Permission)`
-2. **Decode** — Parse body, path params, or query params via schemas
-3. **Get session** — `yield* requireSession` for the current user
-4. **Call service** — Business logic and data access
-5. **Audit** — Fire-and-forget via `AuditLogWriter.log()`
-6. **Respond** — `respondJson()` wraps the result (or `respondEmpty()` for 204)
+Module directories are under `src/effect/modules/<module>/`. They do not follow a mandatory file template. A module commonly contains:
 
-### 6. Layer Composition
+```text
+router.ts              HTTP boundary
+service.ts             use cases and business rules
+repository.ts          tenant-scoped persistence
+types.ts               internal types
+mappers.ts             database-to-response mapping
+write.ts               write workflows, when useful
+<module>.errors.ts     typed domain and infrastructure errors
+*.spec.ts              focused tests
+```
 
-Modules are wired together in `main.ts` using Effect layers — no decorator-based DI container:
+Public DTOs, enums, IDs, query schemas, and request schemas belong in `packages/types` and are imported through a domain export:
 
 ```typescript
-// main.ts (simplified)
-const platformLayer = drizzleLayer.pipe(Layer.provideMerge(betterAuthLayer));
-
-const rolesLayer = RolesService.Default.pipe(Layer.provide(platformLayer));
-const permissionLayer = PermissionProvider.Default.pipe(Layer.provide(rolesLayer));
-
-const categoriesLayer = CategoriesService.Default.pipe(Layer.provide(platformLayer));
-const productsLayer = ProductsService.Default.pipe(
-  Layer.provide(platformLayer),
-  Layer.provide(categoriesLayer)
-);
+import {
+  ClientIdSchema,
+  ClientQuerySchema,
+  CreateClientSchema,
+  UpdateClientSchema,
+} from '@stocket/types/clients';
 ```
 
-!!! tip "Dependency direction"
-    Services export only their `.Default` layer. Cross-module access goes through the service layer — never import a repository from another module.
-
-### 7. Update Shared Types
-
-After changing DTOs or enums:
+Keep route-only structures, such as `{ id: ClientIdSchema }`, beside the router. Keep database rows and workflow-only types inside the backend module. When adding a public file to the shared package, regenerate its barrels:
 
 ```bash
-pnpm --filter @stocket/types barrels
-pnpm --filter @stocket/types build
+pnpm --dir packages/types barrels
 ```
 
-## Authentication
+## Typed errors
 
-### Session Access
-
-Authentication is handled by Better Auth. Sessions are accessed via Effect context:
+Domain errors use the factories in `platform/effect/domain-errors.ts`. Every application error has a unique tag, HTTP status, `messageKey`, and optional typed message arguments.
 
 ```typescript
-// Require authentication (fails with 401 if not logged in)
-const session = yield* requireSession;
-const userId = session.user.id;
+import {
+  ConflictError,
+  InternalError,
+  NotFoundError,
+} from '../../platform/effect/domain-errors';
 
-// Optional session (returns null if not logged in)
-const session = yield* getOptionalSession;
-const userId = session?.user.id;
-```
-
-## Authorization
-
-Use `requirePermission` at the start of every protected route handler:
-
-```typescript
-// Read access
-yield* requirePermission(Resource.PRODUCTS, Permission.READ);
-
-// Write access
-yield* requirePermission(Resource.PRODUCTS, Permission.WRITE);
-```
-
-The `requirePermission` Effect:
-
-1. Gets the current session (fails with 401 if unauthenticated)
-2. Fetches the user's permissions via `PermissionProvider` (cached for 1 minute)
-3. Checks if the user has the required permission
-4. Fails with `PermissionDenied` (403) if not authorized
-
-### Resources and Permissions
-
-| Resource | Read | Write |
-|----------|------|-------|
-| `DASHBOARD` | View dashboard | — |
-| `STOCK` | View stock & movements | Create/edit stock |
-| `PRODUCTS` | View products | Create/edit/delete products |
-| `LOCATIONS` | View locations & areas | Create/edit/delete locations |
-| `INVENTORY` | View inventory | Adjust inventory |
-| `AUDIT_LOGS` | View audit logs | — |
-| `USERS` | View users | Manage users |
-| `SETTINGS` | View settings | Update settings |
-| `ROLES` | View roles | Manage roles |
-
-## Error Handling
-
-Errors are typed values in the Effect failure channel, not thrown exceptions:
-
-```typescript
-// Define a domain error
-export class ProductNotFound extends NotFoundError("ProductNotFound")<{
-  readonly productId: string;
+export class ClientNotFound extends NotFoundError('ClientNotFound')<{
+  readonly id: string;
 }> {}
 
-// Fail with a domain error (includes messageKey for localization)
-yield* Effect.fail(
-  new ProductNotFound({
-    productId: id,
-    messageKey: "products.notFound",
-  })
+export class ClientEmailAlreadyExists extends ConflictError(
+  'ClientEmailAlreadyExists',
+)<{ readonly email: string }> {}
+
+export class ClientsInfrastructureError extends InternalError(
+  'ClientsInfrastructureError',
+)<{ readonly action: string; readonly cause?: unknown }> {}
+```
+
+Available factories map to `400`, `401`, `403`, `404`, `409`, `500`, and `501`. Schema parse failures become `400`; unknown failures become `500` and are masked in production. Standard response helpers localize messages from the English, French, and German catalogs.
+
+## Tenant-scoped repositories and transactions
+
+Tenant-owned data must derive its tenant from request context, never from a client-supplied `tenant_id`. Prefer `makeTenantCrud()` for conventional CRUD. It uses `TenantQuery` to stamp inserts and scope reads, updates, and deletes.
+
+```typescript
+export class ClientsRepository extends Effect.Service<ClientsRepository>()(
+  '@stocket/effect/clients/ClientsRepository',
+  {
+    effect: makeTenantCrud(clients, {
+      entity: 'client',
+      onError: (action, cause) =>
+        new ClientsInfrastructureError({
+          action,
+          cause,
+          messageKey: 'clients.repositoryFailed',
+        }),
+      list: {
+        filters: buildClientFilters,
+        orderBy: sql`"company_name" ASC`,
+      },
+    }),
+    dependencies: [TenantQuery.Default],
+  },
+) {}
+```
+
+For bespoke queries, use the scoped helpers exposed by `makeTenantCrud()` (`scopedWhere`, `scopedWhereId`, `scopedWhereIds`, `insertValues`) or `TenantQuery` directly. A cross-tenant ID must behave like a missing ID.
+
+Use the provided `withTransaction` repository helper, or `withDrizzleTransaction`, when several database writes form one invariant. Keep validation and writes inside the same transaction when concurrency matters; an application preflight check is not a database uniqueness guarantee. Do not hold a database transaction open across S3, email, LLM, or other network calls. Audit writes are also outside the business transaction.
+
+Map promise failures into the module's infrastructure error with `makeTryAsync()` or the error wrapper supplied by `makeTenantCrud()`.
+
+## Services and module boundaries
+
+Services expose use cases, map rows to public DTOs, and trace their operations. HTTP routers must call services rather than repositories.
+
+For normal cross-module collaboration, depend on the other module's service. For a genuinely atomic cross-module workflow, create an explicit orchestrator or coordinating repository and inject narrow `Pick<...>` capabilities. This makes transaction ownership visible without spreading repository imports across routers and unrelated services.
+
+Move a helper into `platform/` only after it is domain-neutral and reused. Keep product, order, inventory, and tenant rules in their owning modules. Do not duplicate another module's validation just to avoid a service dependency.
+
+Layer wiring belongs in `application/layers.ts`; route mounting belongs in `modules/index.ts`.
+
+## HTTP routes
+
+### `tenantRoute` and `tenantRouteContext`
+
+Most tenant API routes use the adapters in `platform/http/tenant-route.ts`:
+
+- `tenantRoute()` authorizes, applies an optional guard, decodes input, resolves the requested session mode, runs the handler, and returns a standard JSON response.
+- `tenantRouteContext()` performs the same boundary work but returns the decoded context Effect. Use it when the route needs `respondAuditedMutation()`, a custom status/header, or an empty response.
+- `queryParams()`, `pathParams()`, `jsonBody()`, and the combined decoders keep parsing at the boundary.
+
+The boundary order is permissions, custom guard, decoding, then explicit session resolution. A permission check already requires authentication. Set `session: 'required'` or `'optional'` when the handler also needs `session` or `userId`; otherwise it defaults to `'none'`.
+
+```typescript
+const ClientPathParams = Schema.Struct({ id: ClientIdSchema });
+
+export const clientsRouter = HttpRouter.empty.pipe(
+  HttpRouter.get(
+    '/',
+    tenantRoute({
+      permissions: [[Resource.CLIENTS, Permission.READ]],
+      decode: queryParams(ClientQuerySchema),
+      handler: ({ input: query }) =>
+        Effect.flatMap(ClientsService, (clients) =>
+          clients.findAllPaginated(query),
+        ),
+    }),
+  ),
+  HttpRouter.post(
+    '/',
+    tenantRouteContext({
+      permissions: [[Resource.CLIENTS, Permission.WRITE]],
+      decode: jsonBody(CreateClientSchema),
+    }).pipe(
+      Effect.flatMap(({ input: dto }) =>
+        respondAuditedMutation(
+          Effect.flatMap(ClientsService, (clients) => clients.create(dto)),
+          {
+            action: AuditAction.CREATE,
+            entityType: AuditEntityType.CLIENT,
+            entityId: (client) => client.id,
+            responseOptions: { status: 201 },
+          },
+        ),
+      ),
+    ),
+  ),
+  HttpRouter.prefixAll('/clients'),
 );
 ```
 
-### Error Response Flow
+### Authentication, RBAC, and feature guards
 
-The `respondJson()` wrapper catches all errors and calls `respondCause()`, which:
+Better Auth serves `/api/auth/**`. Tenant routes resolve the verified hostname before repositories use tenant context. Never accept a hostname or tenant ID as authorization by itself: the session must also have a membership in that tenant.
 
-1. **Domain errors** → HTTP status from error factory + localized message via `messageKey`
-2. **Schema parse errors** → 400 with validation details
-3. **Unknown errors** → 500 (masked in production, detailed in development)
-
-All error responses include `x-request-id` for tracing.
-
-### Localized Messages
-
-Error messages are resolved from locale catalogs (en, fr, de) based on the `Accept-Language` header:
+Declare RBAC requirements on the route:
 
 ```typescript
-// English catalog
-"products.notFound": "Product not found",
-"products.skuConflict": "A product with this SKU already exists",
-
-// French catalog
-"products.notFound": "Produit non trouvé",
-"products.skuConflict": "Un produit avec ce SKU existe déjà",
+tenantRoute({
+  permissions: [[Resource.ORDERS, Permission.READ]],
+  guard: requireOrdersFeature,
+  decode: queryParams(OrderQuerySchema),
+  handler: ({ input }) =>
+    Effect.flatMap(OrdersService, (orders) =>
+      orders.findAllPaginated(input),
+    ),
+});
 ```
 
-## Soft Delete
+RBAC answers whether the user may perform an action. A feature guard answers whether the tenant's plan or override enables that product capability. They are separate checks. The current feature keys are `orders` and `smartImport`; Smart Import also requires write permissions for products, locations, and inventory.
 
-Products use soft delete via `deleted_at`, `deleted_by` columns:
+The exact RBAC resources are:
 
-```typescript
-// Repository — exclude deleted by default
-const findAll = () =>
-  tryAsync(() =>
-    db.query.products.findMany({
-      where: isNull(products.deleted_at),
-    })
-  );
+| Resource | Typical scope |
+| --- | --- |
+| `DASHBOARD` | Dashboard access |
+| `ORDERS` | Orders |
+| `CLIENTS` | Clients |
+| `SUPPLIERS` | Suppliers |
+| `STOCK_MOVEMENTS` | Movement ledger |
+| `PRODUCTS` | Product catalog and photos |
+| `LOCATIONS` | Locations and areas |
+| `INVENTORY` | Inventory records and adjustments |
+| `AUDIT_LOGS` | Tenant audit log reads |
+| `USERS` | Tenant users |
+| `SETTINGS` | Tenant settings and branding |
+| `ROLES` | Roles and assignments |
 
-// Include deleted (for admin views)
-const findAllIncludingDeleted = () =>
-  tryAsync(() => db.query.products.findMany());
+Permissions are `READ` and `WRITE`. There is no `STOCK` resource. Role and assignment writes invalidate the permission cache; feature writes invalidate the entitlement cache.
 
-// Soft delete
-const softDelete = (id: string, userId: string) =>
-  tryAsync(() =>
-    db.update(products)
-      .set({ deleted_at: new Date(), deleted_by: userId })
-      .where(eq(products.id, id))
-  );
+## Response contracts
 
-// Restore
-const restore = (id: string) =>
-  tryAsync(() =>
-    db.update(products)
-      .set({ deleted_at: null, deleted_by: null })
-      .where(eq(products.id, id))
-  );
-```
+Routes return their entity or message body directly. There is no HATEOAS layer and `_links` are not a response guarantee. Status codes and delete bodies are route-specific; do not assume every delete returns `204`.
 
-## Response Formats
-
-### Single Entity
+Standard paginated responses have a nested `meta` object:
 
 ```json
 {
-  "id": "uuid",
-  "name": "Product Name",
-  "_links": {
-    "self": { "href": "/api/v1/products/uuid", "method": "GET" }
+  "data": [],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 0,
+    "total_pages": 0,
+    "has_next": false,
+    "has_previous": false
   }
 }
 ```
 
-### Paginated List
+Bulk operations use the shared `BulkOperationResult` contract:
 
 ```json
 {
-  "data": [...],
-  "page": 1,
-  "limit": 20,
-  "total": 100
-}
-```
-
-### Bulk Operation
-
-```json
-{
-  "succeeded": ["id1", "id2"],
-  "failed": [
-    { "item": { "sku": "PROD-003" }, "error": "SKU already exists" }
+  "success_count": 2,
+  "failure_count": 1,
+  "succeeded": ["id-1", "id-2"],
+  "failures": [
+    { "id": "id-3", "error": "Product not found" }
   ]
 }
 ```
 
-Use `createBulkResultBuilder` from `platform/bulk-operation.utils.ts` to partition inputs into succeeded/failed, plus `findDuplicates` and `partitionByExistence` for common preflight checks.
+Use `runBulkByIds()` from `platform/effect/run-bulk-by-ids.ts` for ID-based bulk workflows, or the builders from `@stocket/types/common` when the workflow needs custom identifiers.
 
-### No Content (204)
+`respondJson()` and `respondEmpty()` attach `x-request-id`, localize message descriptors, and translate typed failures into the standard error envelope. Better Auth responses, Swagger, typed health responses, and CORS preflight do not all pass through those helpers, so do not promise that header on every possible response.
 
-For operations that return no body (e.g., soft deletes), use `respondEmpty` instead of `respondJson`:
+## Audit logging
+
+Use `respondAuditedMutation()` only for mutations whose tenant audit event is part of the current contract. It emits the response after the mutation succeeds and asks `AuditLogWriter` to write an event in a daemon fiber.
+
+Current tenant-audited routers cover areas, categories, clients, inventory, locations, orders, products, roles, stock movements, and suppliers. This does not imply that every mutation in the system is audited. Users, branding, photos, notification preferences, and tasks are examples outside that coverage; superadmin operations use a separate platform audit log.
+
+Tenant audit rows currently record action, entity type and ID, user ID when available, IP address, and timestamp. `changes` and `user_agent` are currently `null`. The write is best-effort, failure is logged and ignored, and it is not in the business transaction. Do not use this log as a complete change history, a rollback source, or a regulatory guarantee.
+
+## Observability
+
+### Service tracing
+
+Create a tracer once per service and wrap public operations with `span()` or `traced()`:
 
 ```typescript
-import { respondEmpty } from "../../platform/errors";
+const trace = makeServiceTracer({
+  serviceName: 'ClientsService',
+  module: 'clients',
+  layer: 'service',
+});
 
-HttpRouter.delete("/products/:id", respondEmpty(
-  Effect.gen(function* () {
-    yield* requirePermission(Resource.PRODUCTS, Permission.WRITE);
-    const { id } = yield* HttpRouter.schemaPathParams(Schema.Struct({ id: Schema.UUID }));
-    const service = yield* ProductsService;
-    yield* service.delete(id);
-  }),
-  { status: 204 },
-));
+const findOne = (id: string) =>
+  repository.findById(id).pipe(
+    trace.span('findOne', { attributes: { id } }),
+  );
 ```
 
-## HATEOAS Links
+`makeServiceTracer()` adds module, layer, operation, request ID, tenant ID when available, and an outcome classification. Use catalogued trace attributes rather than arbitrary keys.
 
-HATEOAS links are added to responses via the `addHateoasLinks()` utility:
+### Structured and localized logging
 
-```typescript
-import { addHateoasLinks } from "../../platform/hateoas";
-
-const links = [
-  { rel: "self", href: `/products/${product.id}`, method: "GET" },
-  { rel: "update", href: `/products/${product.id}`, method: "PUT" },
-  { rel: "delete", href: `/products/${product.id}`, method: "DELETE" },
-];
-
-return addHateoasLinks(productDto, links);
-```
-
-The `getBaseUrl()` helper resolves the protocol from `x-forwarded-proto` for correct URLs behind reverse proxies.
-
-## Audit Logging
-
-Audit logging is fire-and-forget — it runs in a background daemon fiber and never blocks the response:
+`createLogger()` comes from `platform/observability/messages.ts`. Its scope prefixes the message key, and its arguments are limited by `LogProperties` in `platform/catalogs/log-properties.ts`.
 
 ```typescript
-const audit = yield* AuditLogWriter;
-yield* audit.log({
-  action: AuditAction.CREATE,
-  entityType: AuditEntityType.PRODUCT,
-  entityId: product.id,
+const logger = createLogger('tasks');
+
+yield* logger.info('settled', {
+  taskId,
+  taskType,
+  workerId,
+  status,
 });
 ```
 
-The audit writer automatically captures:
+Message catalogs live in `platform/catalogs/en.ts`, `fr.ts`, and `de.ts`. Keep their keys synchronized; English defines the typed `MessageKey` set. Avoid unstructured console logging.
 
-- **User ID** — from the current session
-- **IP address** — from request context
-- **User agent** — from request headers
-- **Timestamp** — current time
+### HTTP middleware
 
-### Audit Actions
+For an incoming request, middleware wraps the app in this order:
 
-| Action | When |
-|--------|------|
-| `CREATE` | Entity created |
-| `UPDATE` | Entity modified |
-| `DELETE` | Entity deleted |
-| `RESTORE` | Soft-deleted entity restored |
-| `ADJUST_QUANTITY` | Inventory quantity changed |
-| `ADD_PHOTO` | Photo uploaded |
-| `STATUS_CHANGE` | Status field changed (e.g., order status) |
+1. request logging and request context;
+2. security headers;
+3. CORS, including verified tenant origins;
+4. the 10 MiB request-body limit;
+5. tenant context;
+6. the router.
 
-## Tracing
+The standard request context carries request ID, path, method, IP, locale, and resolved tenant ID.
 
-The backend's chosen tracing abstraction is `makeServiceTracer` from `src/effect/platform/service-tracer.ts`. It wraps service methods with outcome classification (`not_found` / `validation_error` / `failure`) and request-context attributes.
+## Health and API discovery
 
-```typescript
-import { makeServiceTracer } from "../../platform/service-tracer";
+The public health endpoints are:
 
-const tracer = makeServiceTracer("ProductsService");
+| Endpoint | Check | Failure |
+| --- | --- | --- |
+| `GET /health-check/live` | Process liveness only | No dependency check |
+| `GET /health-check/ready` | PostgreSQL connectivity | `503` when the database is down |
+| `GET /health-check` | PostgreSQL and Better Auth secret | `503` when either is down |
 
-const create = tracer("create", (dto: CreateProduct, userId: string) =>
-  Effect.gen(function* () {
-    // ... business logic
-  }),
-);
-```
-
-!!! danger "Do not substitute `Effect.fn("span")`"
-    `Effect.fn` looks similar but does **not** emit the outcome classification or request-context attributes the tracer captures. Service methods must use `makeServiceTracer` — migrations to `Effect.fn` will be reverted.
-
-Legacy services may still use `Effect.withSpan("ServiceName.method")` directly; prefer `makeServiceTracer` for new code.
-
-## Structured Logging
-
-All structured logs must use the typed `LogProperties` vocabulary — arbitrary key/value pairs are rejected so every field can be indexed by Datadog / OpenSearch.
-
-```typescript
-import { createLogger } from "../../platform/console-logging";
-
-const log = createLogger("products");
-
-yield* log.info("products.created", { productId: product.id, sku: product.sku });
-```
-
-- `LogProperties` is defined in `src/effect/platform/messages.ts`. Every placeholder used in a message template must have a corresponding property with its exact type (`string` or `number`).
-- `MessageArgs = Partial<LogProperties>`.
-- Message catalogs live in `src/effect/platform/catalogs/` — one file per locale (`en.ts`, `fr.ts`, `de.ts`). **English (`en.ts`) is the source of truth for `MessageKey`**; French and German must stay in sync.
-- `createLogger(scope)` prepends the scope to every `MessageKey` automatically, so log sites can use short keys (`"created"` → `"products.created"`).
-- Raw `Effect.tryPromise` is acceptable **only** when each call site uses a distinct hand-typed `MessageKey`; otherwise use `makeTryAsync` from `platform/try-async.ts`.
-
-## HTTP Middleware
-
-The HTTP app applies middleware in order (innermost first):
-
-| Middleware | Purpose |
-|-----------|---------|
-| `corsMiddleware` | CORS headers for cross-origin requests |
-| `securityHeadersMiddleware` | Security headers (CSP, X-Frame-Options, etc.) |
-| `requestLoggingMiddleware` | Request/response logging with timing |
-| `bodyLimitMiddleware` | Max 10MB request body |
-
-All responses include `x-request-id` for request correlation.
-
-## Health Checks
-
-### Endpoints
-
-#### Full Health Check
-
-`GET /health-check`
-
-Checks database connectivity and auth configuration:
+A successful health response uses `status`, `info`, `error`, and `details`:
 
 ```json
 {
   "status": "ok",
-  "checks": {
-    "database": "up",
-    "auth": "configured"
+  "info": {
+    "database": { "status": "up" },
+    "better-auth": { "status": "up" }
+  },
+  "error": {},
+  "details": {
+    "database": { "status": "up" },
+    "better-auth": { "status": "up" }
   }
 }
 ```
 
-Returns `503` if any check fails.
+The Swagger UI is mounted at `/docs`, but it currently describes only the health group implemented with `HttpApiBuilder`. Most `/api/v1` modules still use `HttpRouter` and do not appear in that OpenAPI document. Treat Swagger as partial until those modules migrate.
 
-#### Liveness Probe
+## Durable tasks and the worker
 
-`GET /health-check/live`
+Long-running or retryable work must be enqueued as a durable task instead of remaining in the request fiber. The API and worker are separate processes:
 
-Returns `200` if the process is running.
-
-#### Readiness Probe
-
-`GET /health-check/ready`
-
-Checks database connectivity. Returns `503` if the database is unreachable.
-
-### Kubernetes Configuration
-
-```yaml
-livenessProbe:
-  httpGet:
-    path: /health-check/live
-    port: 8080
-  initialDelaySeconds: 30
-  periodSeconds: 10
-
-readinessProbe:
-  httpGet:
-    path: /health-check/ready
-    port: 8080
-  initialDelaySeconds: 5
-  periodSeconds: 5
+```bash
+pnpm --filter @stocket/api start
+pnpm --filter @stocket/api start:worker
 ```
+
+Tasks support `queued`, `running`, `succeeded`, `failed`, and `canceled` states, plus progress, retry attempts, leases, heartbeats, delayed retry, recovery, and cooperative cancellation. Task reads and cancellation require a session and are scoped by tenant and creating user:
+
+- `GET /api/v1/tasks`
+- `GET /api/v1/tasks/:id`
+- `POST /api/v1/tasks/:id/cancel`
+
+Product import is currently the only registered task type. `POST /api/v1/products/import` returns `202` with the task and a `Location: /api/v1/tasks/:id` header. Its `Idempotency-Key` is scoped to tenant, creator, and task type.
+
+To add a task type, define and validate its payload, implement a `TaskHandler`, register it in the worker's `TaskRegistry` layer, add the dependencies to the worker application layer, and expose an enqueueing service. The HTTP process may enqueue tasks; only the worker should execute them.
+
+## Fast verification
+
+For backend API changes, run the smallest relevant checks first:
+
+```bash
+pnpm --filter @stocket/api type-check
+pnpm --filter @stocket/api lint
+pnpm --filter @stocket/api test -- clients
+```
+
+Use the affected module name as the Vitest filter. Run integration tests when persistence, transactions, tenancy, or route composition changes.

@@ -1,374 +1,281 @@
-# Développement Frontend
+# Développement frontend
 
-Ce guide couvre les patterns de développement TanStack Start pour le frontend Stocket Inventory.
+L'application web Stocket est une application React avec rendu serveur, construite avec TanStack Start. Ce guide décrit les conventions du frontend actuel.
 
 ## Stack technique
 
-- TanStack Start (TanStack Router + Vite)
-- React 19
-- TanStack Query (état serveur)
-- TanStack Form (gestion des formulaires)
-- Tailwind CSS 4
-- Radix UI / composants shadcn
-- Better Auth
-- i18next (en, de, fr)
+- React 19 et TanStack Start/Router
+- TanStack Query pour l'état serveur et l'hydratation SSR
+- TanStack Form avec validation Zod
+- Better Auth pour l'authentification par e-mail et mot de passe
+- StyleX pour les styles de fonctionnalités et de mise en page
+- Tailwind CSS 4 et shadcn/Radix pour les primitives d'interface
+- i18next pour l'anglais, l'allemand et le français
+- Vitest, Testing Library et Playwright
 
-## Structure du projet
+## Cartographie des sources
 
-```
-frontend/src/
-├── routes/                      # Routes basées sur les fichiers (TanStack Router)
-│   ├── __root.tsx               # Layout racine + providers
-│   ├── index.tsx                # Accueil (/)
-│   ├── products.tsx             # Produits (/products)
-│   ├── products.$id.tsx         # Détail produit (/products/:id)
-│   ├── locations.tsx            # Emplacements (/locations)
-│   ├── locations.$id.tsx        # Détail emplacement (/locations/:id)
-│   ├── inventory.tsx            # Inventaire (/inventory)
-│   ├── stock.tsx                # Stock (/stock)
-│   ├── stock-movements.tsx      # Mouvements de stock (/stock-movements)
-│   ├── orders.tsx               # Commandes (/orders)
-│   ├── clients.tsx              # Clients (/clients)
-│   ├── suppliers.tsx            # Fournisseurs (/suppliers)
-│   ├── audit-logs.tsx           # Journal d'audit (/audit-logs)
-│   ├── users.tsx                # Utilisateurs (/users)
-│   ├── roles.tsx                # Rôles (/roles)
-│   ├── settings.tsx             # Paramètres (/settings)
-│   ├── login.tsx                # Connexion
-│   └── signup.tsx               # Inscription
-├── components/
-│   ├── ui/                      # Composants de base (Radix/shadcn)
-│   ├── areas/                   # Fonctionnalités zones
-│   ├── audit-logs/              # Fonctionnalités journal d'audit
-│   ├── category/                # Fonctionnalités catégories
-│   ├── clients/                 # Fonctionnalités clients
-│   ├── common/                  # Header, dialogs, etc.
-│   ├── inventory/               # Fonctionnalités inventaire
-│   ├── items/                   # Fonctionnalités articles
-│   ├── locations/               # Fonctionnalités emplacements
-│   ├── orders/                  # Fonctionnalités commandes
-│   ├── products/                # Fonctionnalités produits
-│   ├── roles/                   # Fonctionnalités rôles
-│   ├── settings/                # Fonctionnalités paramètres
-│   ├── stock-movements/         # Fonctionnalités mouvements de stock
-│   ├── suppliers/               # Fonctionnalités fournisseurs
-│   ├── users/                   # Fonctionnalités utilisateurs
-│   ├── DefaultCatchBoundary.tsx # Limite d'erreur
-│   └── NotFound.tsx             # Composant 404
-├── hooks/providers/             # Contextes React
-├── lib/
-│   ├── data/
-│   │   ├── areas.ts             # Hooks API zones
-│   │   ├── audit-logs.ts        # Hooks API journal d'audit
-│   │   ├── auth.ts              # Hooks API auth
-│   │   ├── axios-client.ts      # Client API
-│   │   ├── branding.ts          # Hooks API branding
-│   │   ├── categories.ts        # Hooks API catégories
-│   │   ├── clients.ts           # Hooks API clients
-│   │   ├── inventory.ts         # Hooks API inventaire
-│   │   ├── locations.ts         # Hooks API emplacements
-│   │   ├── make-crud-hooks.ts   # Factory de hooks CRUD
-│   │   ├── orders.ts            # Hooks API commandes
-│   │   ├── photos.ts            # Hooks API photos
-│   │   ├── products.ts          # Hooks API produits
-│   │   ├── query-cache.ts       # Utilitaires cache de requêtes
-│   │   ├── roles.ts             # Hooks API rôles
-│   │   ├── stock-movements.ts   # Hooks API mouvements de stock
-│   │   ├── suppliers.ts         # Hooks API fournisseurs
-│   │   └── users.ts             # Hooks API utilisateurs
-│   └── utils.ts                 # Utilitaires
-├── locales/                     # i18n (en, de, fr)
-├── router.tsx                   # Configuration du router
-└── routeTree.gen.ts             # Routes générées
+```text
+frontend/
+├── public/                         # Manifeste, service worker, page hors ligne, icônes
+├── e2e/                            # Configuration, fixtures et tests Playwright
+└── src/
+    ├── routes/
+    │   ├── __root.tsx              # Document HTML et providers globaux
+    │   ├── _authed.tsx             # Hôte, session et layout authentifié
+    │   ├── _authed/                # Routes de l'application locataire
+    │   ├── login.tsx               # Routes publiques d'authentification
+    │   ├── signup.tsx
+    │   ├── forgot-password.tsx
+    │   ├── reset-password.tsx
+    │   └── platform.tsx            # Console de l'hôte plateforme
+    ├── components/
+    │   ├── ui/                     # Primitives shadcn/Radix partagées
+    │   ├── products/import-wizard/ # Revue et exécution de Smart Import
+    │   └── <module>/               # Composants fonctionnels
+    ├── hooks/                       # Orchestration et hooks de formulaires
+    ├── lib/
+    │   ├── data/                   # Hooks API/requête/mutation typés
+    │   ├── router/                 # Contexte, protections et schémas de recherche
+    │   ├── server/                 # Fonctions serveur et gestion de l'hôte
+    │   └── stylex/                 # Styles et marqueurs StyleX partagés
+    ├── locales/{en,de,fr}/
+    ├── router.tsx                  # Intégration QueryClient et Router
+    └── routeTree.gen.ts            # Généré ; ne jamais modifier à la main
 ```
 
-## Intégration API
+Le groupe authentifié contient actuellement le tableau de bord, les produits et leur détail, les emplacements et leur détail, l'inventaire, les clients, les fournisseurs, les commandes, les mouvements de stock, le journal d'audit, les utilisateurs, les rôles et les paramètres. Il n'existe pas de route `/stock` ni `/categories` ; la gestion des catégories fait partie de la page des produits.
 
-### Client écrit à la main + Types partagés
+## Architecture du rendu et des requêtes
 
-Les hooks API sont dans `src/lib/data/*.ts` et utilisent les interfaces/enums
-de `@stocket/types`. La factory `make-crud-hooks.ts` génère des hooks CRUD standards pour les ressources.
+`getRouter()` crée le routeur et son `QueryClient`. L'état des requêtes est déshydraté sur le serveur puis hydraté dans le navigateur : les loaders de route et les composants partagent donc le même cache. Le comportement par défaut comprend une durée de fraîcheur de 60 secondes, le préchargement à l'intention, la restauration du défilement et l'absence de nouvelle tentative pour les réponses 4xx.
 
-### Utilisation des requêtes
+`src/routes/__root.tsx` possède le document HTML et les providers globaux : branding, localisation, thème, info-bulles, notifications, outils de développement et enregistrement du service worker en production. Dans `beforeLoad`, `src/routes/_authed.tsx` choisit une branche selon l'hôte d'origine : la branche locataire résout l'utilisateur courant avant d'afficher son shell, tandis que la branche plateforme affiche l'accueil de la plateforme.
 
-```typescript
-import { useListProducts } from '~/lib/data/products';
+Le client API métier fonctionne de deux manières :
 
-function ProductList() {
-  const { data, isLoading, error } = useListProducts({
-    category_id: selectedCategory,
-    page: 1,
-    limit: 20,
-  });
+- Dans le navigateur, les requêtes utilisent `/api/v1` sur la même origine et incluent les identifiants.
+- Pendant le SSR, elles utilisent `INTERNAL_API_ORIGIN` et transmettent le cookie, l'hôte et le protocole d'origine afin que le backend puisse résoudre le locataire.
 
-  if (isLoading) return <Spinner />;
-  if (error) return <ErrorState error={error} />;
-  if (!data?.data?.length) return <EmptyState />;
+Les formulaires d'authentification utilisent le client Better Auth du navigateur sur `/api/auth` ; l'autorisation des routes provient du profil `/api/v1/auth/me` chargé côté serveur. `better-auth` est verrouillé sur une version exacte et doit être mis à niveau délibérément.
 
-  return (
-    <div>
-      {data.data.map(product => (
-        <ProductCard key={product.id} product={product} />
-      ))}
-    </div>
-  );
-}
-```
+N'autorisez `x-forwarded-host` et `x-forwarded-proto` que lorsque `TRUSTED_PROXY=1` et que le processus SSR se trouve derrière un proxy de confiance qui définit ces en-têtes. `VITE_CSP_NONCE` est facultatif et transmis à la configuration SSR du routeur.
 
-### Utilisation des mutations
-
-```typescript
-import { useCreateProduct, getListProductsQueryKey } from '~/lib/data/products';
-import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-
-function CreateProductForm() {
-  const queryClient = useQueryClient();
-
-  const mutation = useCreateProduct({
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
-      toast.success('Produit créé');
-    },
-    onError: () => {
-      toast.error('Échec de la création du produit');
-    },
-  });
-
-  const handleSubmit = async (data: CreateProductDto) => {
-    await mutation.mutateAsync(data);
-  };
-}
-```
-
-## Formulaires
-
-### TanStack Form + Zod
-
-```typescript
-import { useForm } from '@tanstack/react-form';
-import { z } from 'zod';
-
-const schema = z.object({
-  name: z.string().min(1, 'Requis').max(100),
-  sku: z.string().min(1, 'Requis').max(50),
-  category_id: z.string().uuid().optional(),
-});
-
-function ProductForm() {
-  const form = useForm({
-    defaultValues: { name: '', sku: '', category_id: '' },
-    validators: { onSubmit: schema },
-    onSubmit: async ({ value }) => {
-      await mutation.mutateAsync(value);
-    },
-  });
-
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); form.handleSubmit(); }}>
-      <form.Field name="name">
-        {(field) => (
-          <Field>
-            <FieldLabel>Nom</FieldLabel>
-            <Input
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-            />
-            <FieldError errors={field.state.meta.errors} />
-          </Field>
-        )}
-      </form.Field>
-
-      <Button type="submit" disabled={form.state.isSubmitting}>
-        Enregistrer
-      </Button>
-    </form>
-  );
-}
-```
+Le premier rendu s'exécutant sur le serveur, ne lisez pas `window`, `document`, `navigator`, `localStorage` ni les API de caméra au niveau du module. Utilisez un gestionnaire d'événement, `useEffect` ou une condition explicite `typeof window !== 'undefined'`.
 
 ## Routage
 
-Les routes sont définies avec `createFileRoute` dans `src/routes/` :
+TanStack Router déduit les chemins à partir des fichiers, y compris les groupes sans segment d'URL. Une route authentifiée doit donc déclarer son identifiant généré complet :
 
 ```typescript
-import { createFileRoute } from '@tanstack/react-router';
-import { ProductFilters } from '~/components/products/ProductFilters';
-import { ProductGrid } from '~/components/products/ProductGrid';
+import { createFileRoute } from '@tanstack/react-router'
+import { Resource } from '@stocket/types/auth'
+import { z } from 'zod'
+import { getListCategoriesQueryOptions } from '@/lib/data/categories'
+import { requireRouteAccess } from '@/lib/router/guards'
+import { pageSearchParam, stringSearchParam } from '@/lib/router/search'
 
-export const Route = createFileRoute('/products')({
+const searchSchema = z.object({
+  q: stringSearchParam,
+  page: pageSearchParam,
+})
+
+export const Route = createFileRoute('/_authed/products')({
+  validateSearch: (search) => searchSchema.parse(search),
+  beforeLoad: ({ context }) => {
+    requireRouteAccess(context.currentUser, Resource.PRODUCTS)
+  },
+  loader: async ({ context: { queryClient } }) => {
+    await queryClient.ensureQueryData(getListCategoriesQueryOptions())
+  },
   component: ProductsPage,
-});
+})
+```
 
-function ProductsPage() {
-  return (
-    <div className="page-container">
-      <h1>Produits</h1>
-      <ProductFilters />
-      <ProductGrid />
-    </div>
-  );
+Conservez les filtres partageables et la pagination dans des paramètres de recherche URL validés. Utilisez les loaders pour précharger les requêtes nécessaires au premier rendu, puis consommez les mêmes options de requête ou hooks dans le composant. `routeTree.gen.ts` est produit par le plugin TanStack Router et ne doit pas être modifié manuellement.
+
+### Protections d'hôte, de permission et de fonctionnalité
+
+La route parente `_authed` gère la détection de l'hôte plateforme et l'authentification. Les routes enfants ajoutent les contrôles de ressource et de fonctionnalité avec `requireRouteAccess` :
+
+```typescript
+import { Resource } from '@stocket/types/auth'
+import { FeatureKey } from '@stocket/types/features'
+import { requireRouteAccess } from '@/lib/router/guards'
+
+beforeLoad: ({ context }) => {
+  requireRouteAccess(context.currentUser, Resource.ORDERS, {
+    feature: FeatureKey.ORDERS,
+  })
 }
 ```
 
-### Liste des routes
+Utilisez le profil utilisateur déjà présent dans le contexte de route ; ne rechargez pas les permissions dans `beforeLoad`. Une route autonome réservée à la plateforme utilise `getServerIsPlatformHost()` et redirige les hôtes locataires.
 
-| Fichier | Route |
-|---------|-------|
-| `__root.tsx` | Layout racine |
-| `index.tsx` | `/` (Accueil) |
-| `products.tsx` | `/products` |
-| `products.$id.tsx` | `/products/:id` |
-| `locations.tsx` | `/locations` |
-| `locations.$id.tsx` | `/locations/:id` |
-| `inventory.tsx` | `/inventory` |
-| `stock.tsx` | `/stock` |
-| `stock-movements.tsx` | `/stock-movements` |
-| `orders.tsx` | `/orders` |
-| `clients.tsx` | `/clients` |
-| `suppliers.tsx` | `/suppliers` |
-| `audit-logs.tsx` | `/audit-logs` |
-| `users.tsx` | `/users` |
-| `roles.tsx` | `/roles` |
-| `settings.tsx` | `/settings` |
-| `login.tsx` | `/login` |
-| `signup.tsx` | `/signup` |
-
-## Sécurité SSR
-
-TanStack Start rend côté serveur au premier chargement. Éviter les APIs
-navigateur au niveau module ; utiliser `useEffect` ou
-`typeof window !== 'undefined'` si nécessaire.
-
-## Composants
-
-### Template de composant
+Dans les composants, protégez séparément les actions d'écriture, car les permissions de lecture et d'écriture diffèrent :
 
 ```typescript
-import { useTranslation } from 'react-i18next';
-import { cn } from '~/lib/utils';
-import { type ProductResponseDto } from '~/lib/data/products';
+import { Permission, Resource } from '@stocket/types/auth'
+import { FeatureKey } from '@stocket/types/features'
+import { useFeatures } from '@/lib/features'
+import { usePermissions } from '@/lib/permissions'
 
-interface ProductCardProps {
-  product: ProductResponseDto;
-  className?: string;
-}
-
-export function ProductCard({ product, className }: ProductCardProps) {
-  const { t } = useTranslation();
-
-  return (
-    <div className={cn('p-4 border rounded', className)}>
-      <h3>{product.name}</h3>
-      <p>{product.sku}</p>
-    </div>
-  );
-}
+const { can } = usePermissions()
+const features = useFeatures()
+const canCreate = can(Permission.WRITE, Resource.PRODUCTS)
+const canImport = canCreate && features.has(FeatureKey.SMART_IMPORT)
 ```
 
-## Styles
+Les protections de route constituent la frontière de navigation du frontend ; les endpoints backend restent l'autorité de sécurité. Masquer la navigation ou les boutons est une protection UX supplémentaire, pas une autorisation. Lors de l'ajout d'une page, alignez sa protection de route avec les métadonnées `resource`/`feature` de la barre latérale.
 
-### Tailwind CSS
+## Conventions API et Query
 
-Utiliser l'utilitaire `cn()` pour les classes conditionnelles :
+Utilisez `@/` pour les imports depuis `src`. Bien que la configuration TypeScript résolve encore `~/`, le nouveau code suit la convention `@/`. Importez les DTO et enums depuis leur point d'entrée métier, par exemple `@stocket/types/products` ou `@stocket/types/auth`.
+
+Les hooks API typés se trouvent dans `src/lib/data`. Les ressources standard utilisent `makeCrudHooks` ; les opérations spécifiques utilisent `makeQueryHook`, `makeParamQueryHook` ou `makeMutationHook`. Les utilitaires Axios ajoutent les en-têtes transmis pendant le SSR, extraient les données de réponse, acceptent un signal d'annulation pour les requêtes GET et redirigent les réponses 401 du navigateur vers `/login`.
 
 ```typescript
-import { cn } from '~/lib/utils';
+import { useListProducts } from '@/lib/data/products'
 
-<div className={cn('p-4', isActive && 'bg-primary', className)} />
+const products = useListProducts(
+  { search: searchText || undefined, page, limit: 20 },
+  { query: { enabled: isReady } },
+)
+
+if (products.isLoading) return <LoadingState />
+if (products.error) return <ErrorState error={products.error} />
+if (!products.data?.data.length) return <EmptyState />
 ```
 
-### Variables CSS
-
-Les couleurs du thème sont définies dans `globals.css` :
-
-```css
-:root {
-  --primary: 220 90% 56%;
-  --background: 0 0% 100%;
-}
-
-.dark {
-  --primary: 220 90% 60%;
-  --background: 0 0% 10%;
-}
-```
-
-## Internationalisation
-
-### Ajouter des traductions
-
-```json
-// locales/fr/common.json
-{
-  "navigation": {
-    "products": "Produits",
-    "categories": "Catégories"
-  }
-}
-```
-
-### Utiliser les traductions
+Les options propres aux requêtes sont imbriquées sous `query`. Les callbacks de mutation sont imbriqués sous `mutation`, et les mutations CRUD générées reçoivent des variables de forme `{ data }`, `{ id, data }` ou `{ id }` :
 
 ```typescript
-import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  getListProductsQueryKey,
+  useCreateProduct,
+} from '@/lib/data/products'
 
-function Header() {
-  const { t, i18n } = useTranslation();
+const queryClient = useQueryClient()
+const createProduct = useCreateProduct({
+  mutation: {
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: getListProductsQueryKey(),
+      })
+    },
+  },
+})
 
-  return (
-    <nav>
-      <a href="/products">{t('navigation.products')}</a>
-      <button onClick={() => i18n.changeLanguage('fr')}>FR</button>
-    </nav>
-  );
-}
+createProduct.mutate({ data: values })
 ```
 
-## Alias de chemin
+Préférez les factories d'options de requête exportées dans les loaders et les clés de requête exportées pour une invalidation ciblée. Préservez l'`AbortSignal` lors de l'ajout d'opérations GET.
 
-Le frontend utilise `~/*` comme alias de chemin correspondant à `src/*` :
+## Formulaires et internationalisation
+
+Les formulaires métier utilisent TanStack Form et Zod, généralement via un hook dans `src/hooks/forms`. Conservez la conversion des DTO et l'orchestration des mutations dans le hook ou la couche fonctionnelle, plutôt que dans les composants UI de base. La validation serveur reste l'autorité ; mappez les erreurs API vers une bannière de formulaire ou des erreurs de champ.
+
+Toute chaîne visible par l'utilisateur nécessite des clés correspondantes dans `src/locales/en`, `de` et `fr`. Utilisez `useTranslation()` dans les composants et séparez les valeurs stables d'enum/statut de leurs libellés traduits.
+
+Nettoyez les URL fournies par l'API avec `sanitizeUrl()` depuis `@/lib/utils`. Validez les URL saisies par l'utilisateur avec le schéma d'URL sûre partagé avant de les stocker.
+
+## Styles et composants
+
+Utilisez les couches de style existantes selon leur rôle :
+
+- StyleX (`stylex.create` et `stylex.props`) pour les mises en page fonctionnelles et les styles locaux.
+- Les primitives StyleX partagées de `@/lib/stylex` pour les motifs de mise en page répétés.
+- Les composants shadcn/Radix de `@/components/ui` pour les contrôles et superpositions accessibles.
+- Les utilitaires Tailwind et `cn()` lorsqu'un composant shadcn expose `className` ou qu'une petite composition d'utilitaires est plus claire.
+- Les propriétés CSS personnalisées de `routes/globals.css` pour les couleurs, la sémantique d'espacement et les valeurs dépendantes du thème.
 
 ```typescript
-// Au lieu de chemins relatifs :
-import { Button } from '../../../components/ui/button';
+import * as stylex from '@stylexjs/stylex'
+import { Button } from '@/components/ui/button'
+import { stylexBase } from '@/lib/stylex/base'
 
-// Utiliser l'alias :
-import { Button } from '~/components/ui/button';
+const styles = stylex.create({
+  actions: {
+    alignItems: 'center',
+    display: 'flex',
+    gap: '0.75rem',
+  },
+})
+
+<div {...stylex.props(stylexBase.panelColumn, styles.actions)}>
+  <Button type="button">{t('common.save')}</Button>
+</div>
 ```
 
-## Patterns courants
+Ne codez pas en dur les couleurs du thème clair. Le document peut utiliser les thèmes Stocket clair, Stocket sombre, neutre clair ou neutre sombre ; tous sont résolus par les variables CSS.
 
-### États de chargement
+## Tâches en arrière-plan et Smart Import
+
+L'import de produits est une requête multipart qui met en file une tâche backend durable. `importProductsCsv` exige une clé d'idempotence, puis `waitForTask` interroge `/tasks/:id` chaque seconde jusqu'à `SUCCEEDED`, `FAILED` ou `CANCELED`. Le délai d'attente côté navigateur est de 30 minutes ; les erreurs réseau et certaines erreurs HTTP réessayables n'abandonnent pas immédiatement la tâche.
 
 ```typescript
-if (isLoading) return <Spinner />;
-if (error) return <ErrorState error={error} />;
-if (!data?.length) return <EmptyState />;
+import type { TaskResponseDto } from '@stocket/types/tasks'
+import { useState } from 'react'
+import { useBulkCsvImport } from '@/hooks/products'
+
+const [task, setTask] = useState<TaskResponseDto | null>(null)
+const importProducts = useBulkCsvImport(handleResult, handleFailure)
+
+importProducts.mutate({
+  file,
+  approvedPlan,
+  idempotencyKey,
+  onTaskUpdate: setTask,
+})
 ```
 
-### Invalidation de requêtes
+Gardez l'identifiant et la progression de la tâche visibles afin que l'utilisateur puisse vérifier son état après un délai d'attente du navigateur. Réutilisez la même clé d'idempotence pour réessayer la même soumission. Ne lancez pas plusieurs boucles d'interrogation en parallèle : chaque requête dépend de l'état précédent. L'interface Smart Import doit rester protégée à la fois par `PRODUCTS.WRITE` et `FeatureKey.SMART_IMPORT`.
 
-```typescript
-queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
+## Limites de la PWA
+
+La racine de production enregistre `public/sw.js` ; ce n'est pas le cas en développement. Le manifeste démarre l'application installée sur `/login?source=pwa`. Le service worker précharge la page hors ligne et les ressources de marque, utilise une stratégie réseau d'abord pour la navigation avec repli hors ligne, et une stratégie stale-while-revalidate pour les ressources statiques.
+
+Les requêtes API sont explicitement exclues du cache du service worker. L'application ne fournit ni données hors ligne, ni mutations en attente, ni synchronisation en arrière-plan. Les fonctionnalités doivent considérer l'accès API comme disponible uniquement en ligne et afficher les erreurs réseau normales en cas de déconnexion.
+
+## Tests et vérifications
+
+Les tests unitaires et de composants sont colocalisés sous `src/**/*.test.ts(x)` et s'exécutent dans l'environnement JSDOM de Vitest avec Testing Library et le plugin de test StyleX. Placez les comportements purs de requête, protection, reducer et tâche dans des tests unitaires ciblés ; testez le comportement visible des composants avec des rôles et libellés accessibles.
+
+Les spécifications Playwright se trouvent dans `e2e/tests`. Le projet de préparation crée l'état de stockage authentifié pour les tests locataires ; les tests d'authentification utilisent le projet non authentifié. L'origine cible provient de `E2E_FRONTEND_ORIGIN`.
+
+Depuis `frontend/`, utilisez :
+
+```bash
+pnpm type-check
+pnpm lint
+pnpm format:check
+pnpm test:unit
+pnpm test:e2e
+pnpm validate       # type-check + lint + format:check
 ```
 
-### Récupération conditionnelle
+Exécutez le plus petit test unitaire ou E2E pertinent pendant l'itération, puis `pnpm validate` avant la livraison.
 
-```typescript
-const query = useListProducts(params, { enabled: !!categoryId });
-```
+## Ajouter une page fonctionnelle
 
-## Bonnes pratiques
+1. Ajoutez la route sous `src/routes/_authed` et utilisez son identifiant généré complet.
+2. Définissez et validez les paramètres de recherche URL lorsque l'état doit être partageable.
+3. Ajoutez les contrôles de ressource et, si nécessaire, de fonctionnalité avec `requireRouteAccess`.
+4. Préchargez l'état serveur initial avec les options de requête exportées lorsque cela améliore le SSR.
+5. Placez les opérations API dans `src/lib/data` et l'orchestration dans un hook ou composant fonctionnel.
+6. Protégez les contrôles d'écriture avec `usePermissions` et les droits de plan avec `useFeatures`.
+7. Ajoutez les métadonnées correspondantes dans la barre latérale et les traductions en anglais, allemand et français.
+8. Ajoutez une couverture unitaire/composant ciblée et le scénario Playwright pertinent.
 
-1. **Colocaliser la récupération de données** - Récupérer où les données sont utilisées
-2. **Utiliser l'UI pending des routes** - Définir `pendingComponent` ou des limites de suspense
-3. **Lazy load les composants lourds** - Utiliser `React.lazy` ou le code splitting des routes
-4. **Garder les bundles petits** - Ne pas importer de bibliothèques lourdes inutilement
+## Erreurs courantes
 
-### Erreurs courantes à éviter
-
-- Utiliser des APIs navigateur au niveau module pendant le SSR
-- Invalider trop largement les requêtes au lieu de clés ciblées
-- Mettre tout l'état au niveau de la page et faire du prop-drilling
-- Récupérer sans clés de requête stables ou paramètres mémorisés
+- Déclarer une route authentifiée comme `/products` au lieu de `/_authed/products`.
+- Modifier `routeTree.gen.ts` manuellement.
+- Ajouter des imports `~/` au lieu de l'alias standard du projet `@/`.
+- Passer directement `{ enabled }` au lieu de `{ query: { enabled } }` aux hooks de données.
+- Passer directement un DTO à une mutation générée au lieu de `{ data: dto }`.
+- Lire les objets globaux du navigateur ou des variables réservées au navigateur pendant le SSR.
+- Transmettre les en-têtes proxy sans respecter la frontière de proxy de confiance.
+- Masquer un lien sans appliquer les mêmes permission et fonctionnalité sur la route.
+- Supposer que la PWA met les données API en cache ou qu'un délai d'attente navigateur a annulé une tâche backend.

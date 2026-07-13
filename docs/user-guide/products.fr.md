@@ -1,123 +1,54 @@
-# Gestion des Produits
+# Produits
 
-Les produits sont au cœur du système Stocket Inventory. Chaque produit représente un article dans votre inventaire d'approvisionnement de yacht.
+Les produits sont des fiches catalogue propres au tenant. Ouvrez **Inventaire → Produits** (`/products`) pour parcourir, filtrer, créer, modifier et supprimer logiquement. Une carte ouvre le détail.
 
-## Affichage des Produits
+## Parcourir et filtrer
 
-Accédez à la section **Produits** depuis la barre latérale pour voir tous les produits.
+La grille affiche miniature, nom, SKU, catégorie, état actif, seuil de réapprovisionnement et caractère périssable. La recherche et l'arbre de catégories réduisent la liste ; le filtre catégorie inclut ses descendants.
 
-<!-- ![Liste des Produits](../assets/screenshots/products/product-list.png) -->
+La liste ne propose pas encore de filtre des produits supprimés. Une suppression logique individuelle affiche brièvement **Annuler** ; aucune suppression définitive n'est disponible. Le mode lot change le statut ou supprime les lignes de la page. Une action de restauration existe mais les lignes supprimées ne peuvent actuellement pas être sélectionnées.
 
-La liste des produits affiche :
+## Créer ou modifier
 
-- **SKU** - Identifiant unique du produit
-- **Nom** - Nom du produit
-- **Catégorie** - Catégorie du produit
-- **Prix** - Prix de vente standard
-- **Statut** - Actif ou inactif
+Le formulaire actuel gère :
 
-!!! tip "Filtrage des Produits"
-    Utilisez la barre latérale des catégories pour filtrer les produits par catégorie. Cliquez sur une catégorie pour afficher uniquement les produits de cette catégorie et de ses sous-catégories.
+- SKU, nom et catégorie obligatoires ;
+- unité et code-barres ;
+- coût et prix standards ;
+- seuil de réapprovisionnement ;
+- états actif et périssable ;
+- notes ;
+- plusieurs photos.
 
-## Création d'un Produit
+Le SKU est unique dans le tenant. Le changer ne casse pas les références fondées sur l'ID. Les images JPEG, PNG, WebP et GIF jusqu'à 10 Mio sont validées par contenu et peuvent être supprimées ; l'overhead partage la même limite HTTP de 10 Mio.
 
-1. Cliquez sur le bouton **Créer un Produit**
-2. Remplissez les champs obligatoires :
-   - **SKU** - Identifiant unique (peut être scanné via code QR)
-   - **Nom** - Nom du produit
-   - **Catégorie** - Sélectionnez dans l'arborescence des catégories
+Certains produits créés par import/API affichent des métadonnées supplémentaires dans le détail, par exemple une description ou des attributs physiques. Le formulaire web actuel ne les modifie pas et ne gère ni fournisseur principal ni SKU fournisseur.
 
-<!-- ![Formulaire Produit](../assets/screenshots/products/product-form.png) -->
+La vue `/products/:id` réunit les champs catalogue, statut, prix, seuil/périssable, notes et galerie photo lorsque ces valeurs existent.
 
-### Champs du Produit
+## Scan QR
 
-| Champ | Requis | Description |
-|-------|--------|-------------|
-| SKU | Oui | Unité de gestion de stock unique (max 50 car.) |
-| Nom | Oui | Nom d'affichage du produit (max 200 car.) |
-| Catégorie | Oui | Catégorie du produit |
-| Description | Non | Description détaillée |
-| Volume (ml) | Non | Volume en millilitres |
-| Poids (kg) | Non | Poids en kilogrammes |
-| Dimensions (cm) | Non | Dimensions, ex. : "10x10x5" |
-| Coût Standard | Non | Coût d'achat |
-| Prix Standard | Non | Prix de vente |
-| Pourcentage de Marge | Non | Pourcentage de majoration |
-| Point de Réapprovisionnement | Non | Seuil de stock bas (par défaut 0) |
-| Fournisseur Principal | Non | Lien vers une fiche fournisseur |
-| SKU Fournisseur | Non | SKU utilisé par le fournisseur |
-| Code-barres | Non | Valeur du code-barres, ex. : "0641628607549" |
-| Unité | Non | Unité de mesure, ex. : "unités" |
-| Est Actif | Non | Disponibilité du produit (par défaut vrai) |
-| Est Périssable | Non | Suivi de l'expiration (par défaut faux) |
-| Notes | Non | Notes supplémentaires |
+Le scanner remplit le SKU depuis un QR lorsque le navigateur fournit la caméra et `BarcodeDetector`. Il ne s'agit pas actuellement d'un décodeur général de codes-barres.
 
-### Utilisation du Scanner QR
+## Réapprovisionnement et inventaire
 
-Cliquez sur l'icône de code QR à côté du champ SKU pour scanner un code-barres :
+Le seuil est comparé à la quantité d'inventaire pour signaler le stock faible. Créer un produit ne crée pas de stock ; ajoutez des lignes dans [Inventaire](inventory.md). Désactiver un produit conserve ses données.
 
-<!-- ![Scanner QR](../assets/screenshots/products/qr-scanner.png) -->
+## Smart Import
 
-1. Autorisez l'accès à la caméra lorsque demandé
-2. Pointez la caméra vers le code-barres
-3. Le SKU sera automatiquement rempli
+**Importer des produits** n'apparaît que si le tenant possède `SMART_IMPORT` (par défaut Growth/Enterprise ou surcharge plateforme).
 
-## Modification des Produits
+1. Chargez un CSV normalisé ou un export Sortly.
+2. Ajoutez éventuellement jusqu'à 4 000 caractères d'instructions.
+3. Examinez la proposition structurée. Une couche IA peut participer ; sans clé fournisseur, des règles déterministes prennent le relais.
+4. Résolvez catégories, emplacements, zones/bacs, SKU de variantes dupliqués, photos, emplacements manquants et lignes à revoir.
+5. Ajustez les décisions déverrouillées, levez les blocages et envoyez.
+6. Gardez le worker backend séparé actif pendant le suivi de progression.
 
-1. Cliquez sur une ligne de produit pour ouvrir le formulaire de modification
-2. Modifiez les champs selon vos besoins
-3. Cliquez sur **Enregistrer** pour appliquer les modifications
+La revue affiche confiance, suggestions, blocages, décisions créer/existant/défaut et photos. Le traitement est une tâche PostgreSQL durable et idempotente. Le résultat fournit les nombres créés, mis à jour, ignorés, en erreur et de photos, et peut produire un CSV des erreurs par ligne.
 
-!!! warning "Modifications de SKU"
-    La modification du SKU d'un produit peut affecter les commandes et les enregistrements d'inventaire existants. Soyez prudent lors de la modification des SKUs.
+Il n'existe pas de modèle CSV téléchargeable dans l'interface actuelle. Conservez le CSV source et le résultat : un import ne se restaure pas en une seule opération.
 
-## Opérations en Masse
+## Permissions
 
-Sélectionnez plusieurs produits à l'aide des cases à cocher pour effectuer des actions en masse :
-
-- **Mise à Jour du Statut en Masse** - Activer ou désactiver plusieurs produits
-- **Suppression en Masse** - Supprimer temporairement plusieurs produits
-- **Restauration en Masse** - Restaurer des produits supprimés
-
-### Exécution des Actions en Masse
-
-1. Sélectionnez les produits à l'aide des cases à cocher
-2. Cliquez sur le bouton d'action dans la barre d'outils
-3. Confirmez l'action
-4. Consultez le résumé des résultats
-
-### Import CSV en Masse
-
-Vous pouvez importer plusieurs produits à la fois en utilisant un fichier CSV :
-
-1. Cliquez sur le bouton **Importer** dans la barre d'outils
-2. Téléchargez le modèle CSV pour voir le format attendu
-3. Remplissez les données produit dans le fichier CSV
-4. Téléversez le fichier CSV complété
-5. Vérifiez l'aperçu de l'import et confirmez
-
-!!! tip "Conseils pour l'Import CSV"
-    - Assurez-vous que les SKUs sont uniques et n'existent pas déjà dans le système
-    - Les noms de catégories doivent correspondre exactement aux catégories existantes
-    - Laissez les champs optionnels vides si non applicables
-
-## Suppression et Restauration
-
-Les produits sont supprimés temporairement par défaut, ce qui signifie qu'ils peuvent être restaurés :
-
-1. Supprimez un produit en utilisant le bouton de suppression
-2. Affichez les produits supprimés en basculant le filtre
-3. Cliquez sur **Restaurer** pour récupérer un produit supprimé
-
-!!! info "Suppression Définitive"
-    La suppression définitive d'un produit le retire entièrement de la base de données. Cette action est irréversible.
-
-## Images des Produits
-
-Téléchargez des images pour aider à identifier les produits :
-
-1. Cliquez sur la zone de téléchargement d'image
-2. Sélectionnez un fichier image
-3. L'image sera téléchargée et affichée
-
-Formats supportés : PNG, JPG, WebP
+La consultation exige `PRODUCTS.READ`, les mutations `PRODUCTS.WRITE`. Smart Import exige aussi `LOCATIONS.WRITE`, `INVENTORY.WRITE` et la fonctionnalité tenant. La création de catégorie est intégrée à cette page et suit l'autorisation catalogue correspondante.

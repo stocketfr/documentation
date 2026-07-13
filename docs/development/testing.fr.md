@@ -1,169 +1,84 @@
 # Tests
 
-Le backend Stocket Inventory utilise Vitest pour les tests et Playwright pour les tests E2E frontend.
+Les tests appartiennent au dépôt propriétaire du comportement. Préférez le test déterministe le plus étroit, puis une intégration ou un navigateur lorsque la frontière fait partie du besoin.
 
-## Vue d'ensemble
+## Suites backend
 
-| Module | Framework | Statut |
-|--------|-----------|--------|
-| Backend | Vitest | Actif |
-| Frontend | Playwright | Actif |
+Le backend utilise Vitest sur Node :
 
-## Exécuter les tests
+| Motif | Rôle | `pnpm test` par défaut |
+| --- | --- | --- |
+| `*.spec.ts` | Tests purs/unitaires/services/routeurs | Oui |
+| `*.effect.spec.ts` | Services/couches Effect | Oui |
+| `*.property.spec.ts` | Propriétés Fast-check | Oui |
+| `*.integration.spec.ts` | Intégration PostgreSQL réelle | Non ; `pnpm test:integration` |
 
-### Tests Backend
+Les références internes sont `backend/TESTING.md` et `backend/src/effect/testing/README.md`.
+
+Utilisez `@effect/vitest`/`it.effect` et remplacez uniquement la frontière testée dans les layers. Testez les schémas publiés avec des références réalistes : un produit de test exige une catégorie. Vérifiez les erreurs métier taguées plutôt qu'un texte d'exception incident.
+
+### Intégration PostgreSQL
 
 ```bash
-# Exécuter tous les tests
-pnpm --filter @stocket/api test
-
-# Exécuter les tests en mode watch
-pnpm --filter @stocket/api test:watch
-
-# Exécuter les tests avec couverture
-pnpm --filter @stocket/api test:cov
-
-# Exécuter les tests d'intégration
-pnpm --filter @stocket/api test:integration
-
-# Exécuter un fichier de test spécifique
-pnpm --filter @stocket/api test -- products
+cd backend
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/stocket_inventory_test \
+  pnpm test:integration
 ```
 
-### Tests Frontend
+La configuration migre une fois, exécute en série et tronque entre tests. Ne ciblez jamais une base de développement/production. Couvrez isolation tenant, contraintes, transactions, concurrence, contrats de mutation et requêtes dupliquées/idempotentes lorsque la persistance compte.
+
+L'audit est lancé en daemon au mieux. Un test qui attend une ligne utilise le polling `waitForAuditLog` existant ; un délai fixe ou une assertion immédiate est instable et ne doit pas laisser croire à une garantie transactionnelle.
+
+### Commandes backend
 
 ```bash
-# Exécuter les tests E2E Playwright
+pnpm test
+pnpm test:watch
+pnpm test:cov
+pnpm test:integration
+pnpm test:mutation:pure
+pnpm test:duplicates
+```
+
+Le smoke test MinIO optionnel ne s'exécute que si MinIO est disponible et si
+`RUN_MINIO_STORAGE_SMOKE=true` est défini explicitement.
+
+## Tests unitaires frontend
+
+Vitest exécute `src/**/*.test.ts` et `src/**/*.test.tsx` dans jsdom.
+
+```bash
+cd frontend
+pnpm test:unit
+pnpm test:unit:watch
+```
+
+Testez via noms accessibles et état visible. Entourez les composants des mêmes providers query/router/i18n que les tests voisins. Pour les hooks de données, vérifiez clés générées, `enabled`, invalidation et variables de mutation `{ data }` sans traverser les détails internes.
+
+Incluez permissions et fonctionnalités des routes protégées. Les helpers sensibles au SSR couvrent hôte, cookie et protocole forwarded sans supposer `window`.
+
+## Playwright full-stack
+
+```bash
 cd frontend
 pnpm test:e2e
+pnpm test:e2e:ui
+pnpm test:e2e:headed
 ```
 
-## Structure des tests
+La CI construit les deux applications et exécute Chromium avec une révision backend épinglée, PostgreSQL 16 et LocalStack S3. Le setup global provisionne tenant/compte via le seed protégé. L'authentification est un projet Playwright séparé ; la plupart des tests réutilisent son état, les specs d'auth restent indépendantes.
 
-### Tests unitaires Backend
+Ajoutez un E2E pour un comportement critique inter-frontières : récupération de compte, résolution hôte/tenant, permissions/fonctionnalités, tâche d'import, stockage ou interaction navigateur/serveur. Les données de seed doivent être explicites et répétables.
 
-Situés à côté des fichiers sources en `*.spec.ts` ou `*.test.ts` :
+Pour une évolution conjointe frontend/backend, mettez `BACKEND_REF` à jour après validation de la paire. Un test vert contre un backend ancien compatible ne prouve pas la paire non publiée.
 
-```
-backend/src/effect/modules/products/
-├── service.ts
-├── service.test.ts          # Tests unitaires
-├── repository.ts
-└── ...
-```
+## Paquets, desktop, docs et infrastructure
 
-## Écrire des tests unitaires
+- `packages` : `pnpm build`, tests tels que `pnpm --filter @stocketfr/emails test`, puis contrôle des barrels générés.
+- `remote-desktop` : `pnpm test` et `pnpm lint` ; la publication reste expérimentale.
+- `documentation` : validez liens/navigation et laissez la PR exécuter `mkdocs build --strict`.
+- `infrastructure` : format/validation Terraform, tests destroy-guard, syntaxe Ansible et rendu compose dans le workflow protégé.
 
-### Pattern de test de service
+## Avant une pull request
 
-Les services Effect sont testés en fournissant des layers mock pour les dépendances :
-
-```typescript
-import { describe, it, expect } from "vitest";
-import { Effect, Layer } from "effect";
-import { ProductsService } from "./service";
-import { ProductsRepository } from "./repository";
-
-describe("ProductsService", () => {
-  const mockProduct = {
-    id: "660e8400-e29b-41d4-a716-446655440000",
-    sku: "PROD-001",
-    name: "Produit Test",
-    is_active: true,
-  };
-
-  // Créer un layer mock du repository
-  const MockProductsRepository = Layer.succeed(ProductsRepository, {
-    findById: (id: string) => Effect.succeed(mockProduct),
-    findBySku: (sku: string) => Effect.succeed(null),
-    create: (data: any) => Effect.succeed({ ...mockProduct, ...data }),
-  });
-
-  const TestLayer = ProductsService.Default.pipe(
-    Layer.provide(MockProductsRepository),
-  );
-
-  it("devrait retourner un produit par id", async () => {
-    const result = await Effect.gen(function* () {
-      const service = yield* ProductsService;
-      return yield* service.findOne("some-id");
-    }).pipe(Effect.provide(TestLayer), Effect.runPromise);
-
-    expect(result.id).toBe(mockProduct.id);
-  });
-
-  it("devrait échouer avec ProductNotFound pour un id invalide", async () => {
-    const EmptyRepo = Layer.succeed(ProductsRepository, {
-      findById: () => Effect.succeed(null),
-    });
-
-    const layer = ProductsService.Default.pipe(Layer.provide(EmptyRepo));
-
-    const result = await Effect.gen(function* () {
-      const service = yield* ProductsService;
-      return yield* service.findOne("invalid-id");
-    }).pipe(Effect.provide(layer), Effect.either, Effect.runPromise);
-
-    expect(result._tag).toBe("Left");
-  });
-});
-```
-
-### Tester les cas d'erreur
-
-Utiliser `Effect.either` pour capturer les échecs attendus :
-
-```typescript
-it("devrait échouer quand le SKU existe déjà", async () => {
-  const RepoWithExisting = Layer.succeed(ProductsRepository, {
-    findBySku: () => Effect.succeed(mockProduct),
-  });
-
-  const layer = ProductsService.Default.pipe(Layer.provide(RepoWithExisting));
-
-  const result = await Effect.gen(function* () {
-    const service = yield* ProductsService;
-    return yield* service.create({ sku: "PROD-001", name: "Duplicate" }, "user-id");
-  }).pipe(Effect.provide(layer), Effect.either, Effect.runPromise);
-
-  expect(result._tag).toBe("Left");
-});
-```
-
-## Patterns de test
-
-### Mocker les services Effect
-
-Créer des implémentations mock avec `Layer.succeed` :
-
-```typescript
-const MockCategoriesService = Layer.succeed(CategoriesService, {
-  existsById: (id: string) => Effect.succeed(true),
-  findAll: () => Effect.succeed([]),
-});
-
-const TestLayer = ProductsService.Default.pipe(
-  Layer.provide(MockProductsRepository),
-  Layer.provide(MockCategoriesService),
-);
-```
-
-## Couverture
-
-Générer le rapport de couverture :
-
-```bash
-pnpm --filter @stocket/api test:cov
-```
-
-Les rapports sont générés dans `backend/coverage/`.
-
-## Bonnes pratiques
-
-1. **Utiliser `Layer.succeed` pour les mocks** — Fournit des implémentations mock type-safe
-2. **Utiliser `Effect.either` pour tester les erreurs** — Capture les échecs attendus sans lever d'exception
-3. **Isoler les tests** — Chaque test doit fournir ses propres layers
-4. **Préférer les tests d'intégration pour les workflows** — Tester la logique inter-modules contre une vraie base de données
-5. **Utiliser `Effect.runPromise`** — Convertit un Effect en promesse pour Vitest
-6. **Tester les types d'erreurs explicitement** — Vérifier la classe d'erreur spécifique
-7. **Garder les mocks minimaux** — Ne mocker que les méthodes utilisées par le test
+Exécutez d'abord les contrôles ciblés, puis type/lint du dépôt propriétaire. Signalez précisément tout contrôle ignoré. Une inspection visuelle ne remplace pas un test manquant.

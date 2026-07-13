@@ -1,376 +1,378 @@
 # Développement API
 
-Ce guide couvre les patterns de développement Effect.ts pour le backend Stocket Inventory, qui tourne sur Bun avec Drizzle ORM et PostgreSQL.
+Le backend Stocket s'exécute avec Node.js 22, Effect, Drizzle ORM et PostgreSQL. `tsx` lance les points d'entrée de développement ; esbuild produit des bundles CommonJS pour Node 22 en production. Bun n'est pas le runtime du backend.
 
-## Structure des modules
+## Runtime et composition de l'application
 
-Chaque fonctionnalité suit cette structure :
+Les points d'entrée restent volontairement légers :
 
-```
-modules/<feature>/
-├── router.ts              # Gestionnaires de routes HTTP
-├── service.ts             # Logique métier (service Effect)
-├── repository.ts          # Accès aux données (requêtes Drizzle)
-├── <feature>.schema.ts    # Schémas de validation (Effect Schema)
-├── <feature>.errors.ts    # Définitions d'erreurs de domaine
-└── <feature>.utils.ts     # Mappers, helpers (optionnel)
-```
+- `src/effect/main.ts` valide `NODE_ENV` et `PORT`, construit les layers applicatifs et HTTP, puis appelle `NodeRuntime.runMain()`.
+- `src/effect/task-worker.ts` construit le worker de tâches durables sans démarrer de serveur HTTP.
+- `src/effect/application/layers.ts` centralise la composition des services et de la plateforme.
+- `src/effect/application/startup.ts` gère les migrations de démarrage, le seed des rôles par défaut et le scanner de notifications.
+- `src/effect/modules/index.ts` monte les routers des modules sous `/api/v1`.
+- `src/effect/http/app.ts` assemble les routers, Better Auth, l'API de santé, Swagger et les middlewares.
 
-## Créer un nouveau module
-
-### 1. Définitions de schémas
-
-Les schémas définissent la validation des corps de requête et paramètres avec Effect Schema :
+Le point d'entrée de l'API suit cette forme :
 
 ```typescript
-// products.schema.ts
-import { Schema } from "effect";
+const applicationLayer = makeApplicationLayer({
+  nodeEnv,
+  runBetterAuthMigrations:
+    process.env.RUN_BETTER_AUTH_MIGRATIONS === 'true',
+});
 
-export const CreateProductSchema = Schema.Struct({
-  sku: Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(50)),
-  name: Schema.Trim.pipe(Schema.minLength(1), Schema.maxLength(200)),
-  category_id: Schema.optionalWith(Schema.NullOr(Schema.UUID), {
-    default: () => null,
-  }),
-}).annotations({ identifier: "CreateProduct" });
-```
-
-!!! tip "Annotations de schéma"
-    Ajoutez toujours `.annotations({ identifier: '...' })` aux schémas. L'identifiant apparaît dans les messages d'erreur de validation et les spans de traçage.
-
-### 2. Erreurs de domaine
-
-Définir des erreurs typées qui correspondent aux codes HTTP :
-
-```typescript
-// products.errors.ts
-import { NotFoundError, BadRequestError, InternalError } from "../platform/errors";
-
-export class ProductNotFound extends NotFoundError("ProductNotFound")<{
-  readonly productId: string;
-}> {}
-
-export class ProductSkuConflict extends BadRequestError("ProductSkuConflict")<{
-  readonly sku: string;
-}> {}
-```
-
-Chaque factory d'erreur définit automatiquement le code HTTP :
-
-| Factory | Status | Cas d'utilisation |
-|---------|--------|-------------------|
-| `NotFoundError` | 404 | Entité non trouvée |
-| `BadRequestError` | 400 | Validation, conflits |
-| `ConflictError` | 409 | Ressources dupliquées |
-| `ForbiddenError` | 403 | Permissions insuffisantes |
-| `UnauthorizedError` | 401 | Non authentifié |
-| `InternalError` | 500 | Erreurs d'infrastructure |
-
-### 3. Repository
-
-Les repositories gèrent l'accès aux données via Drizzle ORM :
-
-```typescript
-// repository.ts
-import { Effect } from "effect";
-import { DrizzleDatabase } from "../../platform/drizzle";
-
-export class ProductsRepository extends Effect.Service<ProductsRepository>()(
-  "ProductsRepository",
-  {
-    effect: Effect.gen(function* () {
-      const db = yield* DrizzleDatabase;
-
-      const tryAsync = makeTryAsync(
-        (error) => new ProductsInfrastructureError({ cause: error })
-      );
-
-      const findById = (id: string) =>
-        tryAsync(() =>
-          db.query.products.findFirst({
-            where: and(eq(products.id, id), isNull(products.deleted_at)),
-            with: { category: true },
-          })
-        );
-
-      return { findById /* ... */ };
-    }),
-    dependencies: [DrizzleDatabase.Default],
-  }
-) {}
-```
-
-### 4. Service
-
-Les services contiennent la logique métier :
-
-```typescript
-// service.ts
-export class ProductsService extends Effect.Service<ProductsService>()(
-  "ProductsService",
-  {
-    effect: Effect.gen(function* () {
-      const repo = yield* ProductsRepository;
-      const categoriesService = yield* CategoriesService;
-
-      const create = (dto: CreateProduct, userId: string) =>
-        Effect.gen(function* () {
-          if (dto.category_id) {
-            yield* categoriesService.existsById(dto.category_id);
-          }
-          const existing = yield* repo.findBySku(dto.sku);
-          if (existing) {
-            return yield* Effect.fail(
-              new ProductSkuConflict({ sku: dto.sku, messageKey: "products.skuConflict" })
-            );
-          }
-          return yield* repo.create({ ...dto, created_by: userId });
-        }).pipe(Effect.withSpan("ProductsService.create"));
-
-      return { create /* ... */ };
-    }),
-    dependencies: [ProductsRepository.Default, CategoriesService.Default],
-  }
-) {}
-```
-
-### 5. Router
-
-Les routers définissent les endpoints HTTP :
-
-```typescript
-// router.ts
-export const ProductsRouter = HttpRouter.empty.pipe(
-  HttpRouter.get("/products", respondJson(
-    Effect.gen(function* () {
-      yield* requirePermission(Resource.PRODUCTS, Permission.READ);
-      const query = yield* searchParams(ProductsQuerySchema);
-      const service = yield* ProductsService;
-      return yield* service.findAllPaginated(query);
-    })
-  )),
-
-  HttpRouter.post("/products", respondJson(
-    Effect.gen(function* () {
-      yield* requirePermission(Resource.PRODUCTS, Permission.WRITE);
-      const body = yield* HttpServerRequest.schemaBodyJson(CreateProductSchema);
-      const session = yield* requireSession;
-      const service = yield* ProductsService;
-      const product = yield* service.create(body, session.user.id);
-
-      const audit = yield* AuditLogWriter;
-      yield* audit.log({
-        action: AuditAction.CREATE,
-        entityType: AuditEntityType.PRODUCT,
-        entityId: product.id,
-      });
-
-      return product;
-    }),
-    { status: 201 }
-  )),
+const main = Layer.launch(makeHttpServerLayer(port)).pipe(
+  Effect.provide(applicationLayer),
+  Effect.provide(runtimeLoggingLayer),
 );
+
+NodeRuntime.runMain(main);
 ```
 
-### Pattern des gestionnaires de routes
+`platformLayer` fournit la base de données, Better Auth et le stockage objet. Les services de fonctionnalités sont composés au-dessus, puis les services de modules et les workflows inter-modules. Ajoutez le nouveau câblage dans `application/layers.ts`, pas dans le point d'entrée.
 
-Chaque gestionnaire suit la même séquence :
+## Anatomie d'un module et contrats partagés
 
-1. **Autoriser** — `yield* requirePermission(Resource, Permission)`
-2. **Décoder** — Parser le corps, les paramètres de chemin ou de requête
-3. **Session** — `yield* requireSession` pour l'utilisateur courant
-4. **Service** — Logique métier et accès aux données
-5. **Audit** — Fire-and-forget via `AuditLogWriter.log()`
-6. **Répondre** — `respondJson()` enveloppe le résultat
+Les répertoires de modules se trouvent sous `src/effect/modules/<module>/`. Ils ne suivent pas un modèle de fichiers obligatoire. Un module contient généralement :
 
-### 6. Composition des couches
+```text
+router.ts              frontière HTTP
+service.ts             cas d'usage et règles métier
+repository.ts          persistance limitée au tenant
+types.ts               types internes
+mappers.ts             conversion base de données vers réponse
+write.ts               workflows d'écriture, si utile
+<module>.errors.ts     erreurs de domaine et d'infrastructure typées
+*.spec.ts              tests ciblés
+```
 
-Les modules sont câblés dans `main.ts` via les layers Effect :
+Les DTO publics, enums, identifiants, schémas de requête et schémas de corps appartiennent à `packages/types` et sont importés via l'export du domaine :
 
 ```typescript
-// main.ts (simplifié)
-const platformLayer = drizzleLayer.pipe(Layer.provideMerge(betterAuthLayer));
-const rolesLayer = RolesService.Default.pipe(Layer.provide(platformLayer));
-const productsLayer = ProductsService.Default.pipe(
-  Layer.provide(platformLayer),
-  Layer.provide(categoriesLayer)
-);
+import {
+  ClientIdSchema,
+  ClientQuerySchema,
+  CreateClientSchema,
+  UpdateClientSchema,
+} from '@stocket/types/clients';
 ```
 
-!!! tip "Direction des dépendances"
-    Les services n'exportent que leur layer `.Default`. L'accès inter-modules passe par la couche service — jamais importer un repository d'un autre module.
-
-### 7. Mise à jour des types partagés
+Conservez près du router les structures propres à une route, par exemple `{ id: ClientIdSchema }`. Conservez les lignes de base de données et les types internes aux workflows dans le module backend. Après l'ajout d'un fichier public au package partagé, régénérez ses barrels :
 
 ```bash
-pnpm --filter @stocket/types barrels
-pnpm --filter @stocket/types build
+pnpm --dir packages/types barrels
 ```
 
-## Authentification
+## Erreurs typées
 
-### Accès à la session
-
-L'authentification est gérée par Better Auth. Les sessions sont accessibles via le contexte Effect :
+Les erreurs de domaine utilisent les factories de `platform/effect/domain-errors.ts`. Chaque erreur applicative possède un tag unique, un statut HTTP, un `messageKey` et des arguments de message typés optionnels.
 
 ```typescript
-// Requiert l'authentification (échoue avec 401 si non connecté)
-const session = yield* requireSession;
-const userId = session.user.id;
+import {
+  ConflictError,
+  InternalError,
+  NotFoundError,
+} from '../../platform/effect/domain-errors';
 
-// Session optionnelle (retourne null si non connecté)
-const session = yield* getOptionalSession;
+export class ClientNotFound extends NotFoundError('ClientNotFound')<{
+  readonly id: string;
+}> {}
+
+export class ClientEmailAlreadyExists extends ConflictError(
+  'ClientEmailAlreadyExists',
+)<{ readonly email: string }> {}
+
+export class ClientsInfrastructureError extends InternalError(
+  'ClientsInfrastructureError',
+)<{ readonly action: string; readonly cause?: unknown }> {}
 ```
 
-## Autorisation
+Les factories disponibles correspondent aux statuts `400`, `401`, `403`, `404`, `409`, `500` et `501`. Les erreurs de parsing de schéma deviennent des `400` ; les erreurs inconnues deviennent des `500` et sont masquées en production. Les helpers de réponse standard localisent les messages depuis les catalogues anglais, français et allemand.
 
-Utiliser `requirePermission` au début de chaque route protégée :
+## Repositories limités au tenant et transactions
+
+Les données appartenant à un tenant doivent tirer leur tenant du contexte de requête, jamais d'un `tenant_id` fourni par le client. Préférez `makeTenantCrud()` pour le CRUD conventionnel. Il utilise `TenantQuery` pour ajouter le tenant aux insertions et limiter les lectures, mises à jour et suppressions.
 
 ```typescript
-yield* requirePermission(Resource.PRODUCTS, Permission.READ);
-yield* requirePermission(Resource.PRODUCTS, Permission.WRITE);
+export class ClientsRepository extends Effect.Service<ClientsRepository>()(
+  '@stocket/effect/clients/ClientsRepository',
+  {
+    effect: makeTenantCrud(clients, {
+      entity: 'client',
+      onError: (action, cause) =>
+        new ClientsInfrastructureError({
+          action,
+          cause,
+          messageKey: 'clients.repositoryFailed',
+        }),
+      list: {
+        filters: buildClientFilters,
+        orderBy: sql`"company_name" ASC`,
+      },
+    }),
+    dependencies: [TenantQuery.Default],
+  },
+) {}
 ```
 
-L'Effect `requirePermission` :
+Pour les requêtes spécifiques, utilisez les helpers limités au tenant exposés par `makeTenantCrud()` (`scopedWhere`, `scopedWhereId`, `scopedWhereIds`, `insertValues`) ou directement `TenantQuery`. Un identifiant d'un autre tenant doit se comporter comme un identifiant absent.
 
-1. Obtient la session courante (échoue avec 401 si non authentifié)
-2. Récupère les permissions via `PermissionProvider` (cache de 1 minute)
-3. Vérifie la permission requise
-4. Échoue avec `PermissionDenied` (403) si non autorisé
+Utilisez le helper de repository `withTransaction`, ou `withDrizzleTransaction`, lorsque plusieurs écritures en base forment un seul invariant. Gardez la validation et les écritures dans la même transaction lorsque la concurrence compte ; une vérification préalable applicative n'est pas une garantie d'unicité en base. Ne maintenez pas une transaction ouverte pendant un appel S3, email, LLM ou réseau. Les écritures d'audit sont également hors de la transaction métier.
 
-## Gestion des erreurs
+Convertissez les rejets de promesses en erreur d'infrastructure du module avec `makeTryAsync()` ou le wrapper fourni par `makeTenantCrud()`.
 
-Les erreurs sont des valeurs typées dans le canal d'échec Effect :
+## Services et frontières des modules
+
+Les services exposent les cas d'usage, convertissent les lignes en DTO publics et tracent leurs opérations. Les routers HTTP doivent appeler les services, pas les repositories.
+
+Pour une collaboration inter-module normale, dépendez du service de l'autre module. Pour un workflow inter-module réellement atomique, créez un orchestrateur explicite ou un repository coordinateur et injectez des capacités `Pick<...>` étroites. La propriété de la transaction reste ainsi visible sans disperser les imports de repositories dans les routers et services sans rapport.
+
+Déplacez un helper dans `platform/` seulement lorsqu'il est indépendant du domaine et réutilisé. Conservez les règles de produit, commande, inventaire et tenant dans leurs modules propriétaires. Ne dupliquez pas la validation d'un autre module uniquement pour éviter une dépendance de service.
+
+Le câblage des layers appartient à `application/layers.ts` ; le montage des routes à `modules/index.ts`.
+
+## Routes HTTP
+
+### `tenantRoute` et `tenantRouteContext`
+
+La plupart des routes d'API tenant utilisent les adaptateurs de `platform/http/tenant-route.ts` :
+
+- `tenantRoute()` autorise, applique un guard optionnel, décode l'entrée, résout le mode de session demandé, exécute le handler et renvoie une réponse JSON standard.
+- `tenantRouteContext()` effectue le même travail de frontière mais renvoie l'Effect du contexte décodé. Utilisez-le avec `respondAuditedMutation()`, un statut ou header personnalisé, ou une réponse vide.
+- `queryParams()`, `pathParams()`, `jsonBody()` et les décodeurs combinés gardent le parsing à la frontière.
+
+L'ordre de la frontière est : permissions, guard personnalisé, décodage, puis résolution explicite de la session. Une vérification de permission exige déjà une authentification. Définissez `session: 'required'` ou `'optional'` lorsque le handler a aussi besoin de `session` ou `userId` ; sinon la valeur par défaut est `'none'`.
 
 ```typescript
-// Échouer avec une erreur de domaine (inclut messageKey pour la localisation)
-yield* Effect.fail(
-  new ProductNotFound({
-    productId: id,
-    messageKey: "products.notFound",
-  })
+const ClientPathParams = Schema.Struct({ id: ClientIdSchema });
+
+export const clientsRouter = HttpRouter.empty.pipe(
+  HttpRouter.get(
+    '/',
+    tenantRoute({
+      permissions: [[Resource.CLIENTS, Permission.READ]],
+      decode: queryParams(ClientQuerySchema),
+      handler: ({ input: query }) =>
+        Effect.flatMap(ClientsService, (clients) =>
+          clients.findAllPaginated(query),
+        ),
+    }),
+  ),
+  HttpRouter.post(
+    '/',
+    tenantRouteContext({
+      permissions: [[Resource.CLIENTS, Permission.WRITE]],
+      decode: jsonBody(CreateClientSchema),
+    }).pipe(
+      Effect.flatMap(({ input: dto }) =>
+        respondAuditedMutation(
+          Effect.flatMap(ClientsService, (clients) => clients.create(dto)),
+          {
+            action: AuditAction.CREATE,
+            entityType: AuditEntityType.CLIENT,
+            entityId: (client) => client.id,
+            responseOptions: { status: 201 },
+          },
+        ),
+      ),
+    ),
+  ),
+  HttpRouter.prefixAll('/clients'),
 );
 ```
 
-### Messages localisés
+### Authentification, RBAC et guards de fonctionnalités
 
-Les messages sont résolus depuis les catalogues de langues (en, fr, de) selon l'en-tête `Accept-Language`.
+Better Auth sert `/api/auth/**`. Les routes tenant résolvent le hostname vérifié avant que les repositories n'utilisent le contexte du tenant. N'acceptez jamais un hostname ou un identifiant de tenant comme autorisation à lui seul : la session doit aussi avoir une adhésion à ce tenant.
 
-## Soft Delete
-
-Les produits utilisent la suppression logique via `deleted_at`, `deleted_by` :
+Déclarez les exigences RBAC sur la route :
 
 ```typescript
-// Repository — exclure les supprimés par défaut
-const findAll = () =>
-  tryAsync(() =>
-    db.query.products.findMany({
-      where: isNull(products.deleted_at),
-    })
-  );
-
-// Suppression logique
-const softDelete = (id: string, userId: string) =>
-  tryAsync(() =>
-    db.update(products)
-      .set({ deleted_at: new Date(), deleted_by: userId })
-      .where(eq(products.id, id))
-  );
+tenantRoute({
+  permissions: [[Resource.ORDERS, Permission.READ]],
+  guard: requireOrdersFeature,
+  decode: queryParams(OrderQuerySchema),
+  handler: ({ input }) =>
+    Effect.flatMap(OrdersService, (orders) =>
+      orders.findAllPaginated(input),
+    ),
+});
 ```
 
-## Formats de réponse
+Le RBAC indique si l'utilisateur peut effectuer une action. Un guard de fonctionnalité indique si le plan ou l'override du tenant active cette capacité produit. Ce sont deux vérifications distinctes. Les clés actuelles sont `orders` et `smartImport` ; Smart Import exige aussi les permissions d'écriture pour les produits, emplacements et inventaires.
 
-### Entité unique
+Les ressources RBAC exactes sont :
+
+| Ressource | Périmètre habituel |
+| --- | --- |
+| `DASHBOARD` | Accès au tableau de bord |
+| `ORDERS` | Commandes |
+| `CLIENTS` | Clients |
+| `SUPPLIERS` | Fournisseurs |
+| `STOCK_MOVEMENTS` | Registre des mouvements |
+| `PRODUCTS` | Catalogue de produits et photos |
+| `LOCATIONS` | Emplacements et zones |
+| `INVENTORY` | Lignes et ajustements d'inventaire |
+| `AUDIT_LOGS` | Lecture de l'audit tenant |
+| `USERS` | Utilisateurs du tenant |
+| `SETTINGS` | Paramètres et branding du tenant |
+| `ROLES` | Rôles et attributions |
+
+Les permissions sont `READ` et `WRITE`. Il n'existe pas de ressource `STOCK`. Les écritures de rôles et d'attributions invalident le cache des permissions ; les écritures de fonctionnalités invalident le cache des droits produit.
+
+## Contrats de réponse
+
+Les routes renvoient directement leur entité ou leur message. Il n'existe pas de layer HATEOAS et `_links` n'est pas garanti dans les réponses. Les statuts et corps de suppression dépendent de la route ; ne supposez pas que chaque suppression renvoie `204`.
+
+Les réponses paginées standard contiennent un objet `meta` imbriqué :
 
 ```json
 {
-  "id": "uuid",
-  "name": "Nom du produit",
-  "_links": {
-    "self": { "href": "/api/v1/products/uuid", "method": "GET" }
+  "data": [],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 0,
+    "total_pages": 0,
+    "has_next": false,
+    "has_previous": false
   }
 }
 ```
 
-### Liste paginée
+Les opérations en masse utilisent le contrat partagé `BulkOperationResult` :
 
 ```json
 {
-  "data": [...],
-  "page": 1,
-  "limit": 20,
-  "total": 100
-}
-```
-
-### Opération en masse
-
-```json
-{
-  "succeeded": ["id1", "id2"],
-  "failed": [
-    { "item": { "sku": "PROD-003" }, "error": "Le SKU existe déjà" }
+  "success_count": 2,
+  "failure_count": 1,
+  "succeeded": ["id-1", "id-2"],
+  "failures": [
+    { "id": "id-3", "error": "Produit introuvable" }
   ]
 }
 ```
 
+Utilisez `runBulkByIds()` depuis `platform/effect/run-bulk-by-ids.ts` pour les workflows en masse par identifiants, ou les builders de `@stocket/types/common` lorsqu'un workflow nécessite des identifiants personnalisés.
+
+`respondJson()` et `respondEmpty()` ajoutent `x-request-id`, localisent les descripteurs de message et convertissent les erreurs typées en enveloppe d'erreur standard. Les réponses Better Auth, Swagger, health typées et les preflights CORS ne passent pas toutes par ces helpers : ne promettez donc pas ce header sur toutes les réponses possibles.
+
 ## Journalisation d'audit
 
-La journalisation est fire-and-forget — elle s'exécute dans une fibre daemon en arrière-plan :
+Utilisez `respondAuditedMutation()` uniquement pour les mutations dont l'événement d'audit tenant fait partie du contrat actuel. Il produit la réponse après le succès de la mutation et demande à `AuditLogWriter` d'écrire un événement dans une fibre daemon.
+
+Les routers actuellement audités côté tenant couvrent les zones, catégories, clients, inventaires, emplacements, commandes, produits, rôles, mouvements de stock et fournisseurs. Cela ne signifie pas que chaque mutation du système est auditée. Les utilisateurs, le branding, les photos, les préférences de notification et les tâches sont des exemples hors de cette couverture ; les opérations superadmin utilisent un audit plateforme séparé.
+
+Les lignes d'audit tenant enregistrent actuellement l'action, le type et l'identifiant d'entité, l'identifiant utilisateur si disponible, l'adresse IP et l'horodatage. `changes` et `user_agent` valent actuellement `null`. L'écriture est best-effort, son échec est journalisé puis ignoré, et elle n'appartient pas à la transaction métier. N'utilisez pas ce journal comme historique exhaustif, source de rollback ou garantie réglementaire.
+
+## Observabilité
+
+### Traçage des services
+
+Créez un tracer une fois par service et enveloppez les opérations publiques avec `span()` ou `traced()` :
 
 ```typescript
-const audit = yield* AuditLogWriter;
-yield* audit.log({
-  action: AuditAction.CREATE,
-  entityType: AuditEntityType.PRODUCT,
-  entityId: product.id,
+const trace = makeServiceTracer({
+  serviceName: 'ClientsService',
+  module: 'clients',
+  layer: 'service',
+});
+
+const findOne = (id: string) =>
+  repository.findById(id).pipe(
+    trace.span('findOne', { attributes: { id } }),
+  );
+```
+
+`makeServiceTracer()` ajoute le module, le layer, l'opération, l'identifiant de requête, l'identifiant du tenant si disponible et une classification du résultat. Utilisez les attributs de traçage catalogués plutôt que des clés arbitraires.
+
+### Logs structurés et localisés
+
+`createLogger()` vient de `platform/observability/messages.ts`. Son scope préfixe la clé de message et ses arguments sont limités par `LogProperties` dans `platform/catalogs/log-properties.ts`.
+
+```typescript
+const logger = createLogger('tasks');
+
+yield* logger.info('settled', {
+  taskId,
+  taskType,
+  workerId,
+  status,
 });
 ```
 
-## Traçage
+Les catalogues de messages se trouvent dans `platform/catalogs/en.ts`, `fr.ts` et `de.ts`. Gardez leurs clés synchronisées ; l'anglais définit l'ensemble typé `MessageKey`. Évitez les logs console non structurés.
 
-Les méthodes de service utilisent `Effect.withSpan()` pour le traçage distribué :
+### Middlewares HTTP
 
-```typescript
-const create = (dto: CreateProduct, userId: string) =>
-  Effect.gen(function* () {
-    // ... logique métier
-  }).pipe(Effect.withSpan("ProductsService.create"));
+Pour une requête entrante, les middlewares enveloppent l'application dans cet ordre :
+
+1. journalisation de requête et contexte de requête ;
+2. headers de sécurité ;
+3. CORS, y compris les origines de tenants vérifiées ;
+4. limite de corps de requête à 10 Mio ;
+5. contexte du tenant ;
+6. router.
+
+Le contexte de requête standard contient l'identifiant de requête, le chemin, la méthode, l'IP, la locale et l'identifiant de tenant résolu.
+
+## Santé et découverte de l'API
+
+Les endpoints publics de santé sont :
+
+| Endpoint | Vérification | Échec |
+| --- | --- | --- |
+| `GET /health-check/live` | Vivacité du processus uniquement | Aucune dépendance vérifiée |
+| `GET /health-check/ready` | Connectivité PostgreSQL | `503` si la base est indisponible |
+| `GET /health-check` | PostgreSQL et secret Better Auth | `503` si l'un des deux est indisponible |
+
+Une réponse de santé réussie utilise `status`, `info`, `error` et `details` :
+
+```json
+{
+  "status": "ok",
+  "info": {
+    "database": { "status": "up" },
+    "better-auth": { "status": "up" }
+  },
+  "error": {},
+  "details": {
+    "database": { "status": "up" },
+    "better-auth": { "status": "up" }
+  }
+}
 ```
 
-## Middleware HTTP
+L'interface Swagger est montée sur `/docs`, mais elle ne décrit actuellement que le groupe health implémenté avec `HttpApiBuilder`. La plupart des modules `/api/v1` utilisent encore `HttpRouter` et n'apparaissent pas dans ce document OpenAPI. Considérez Swagger comme partiel jusqu'à leur migration.
 
-L'application HTTP applique les middlewares dans l'ordre :
+## Tâches durables et worker
 
-| Middleware | Objectif |
-|-----------|----------|
-| `corsMiddleware` | En-têtes CORS |
-| `securityHeadersMiddleware` | En-têtes de sécurité |
-| `requestLoggingMiddleware` | Journalisation requêtes/réponses |
-| `bodyLimitMiddleware` | Corps de requête max 10 Mo |
+Les traitements longs ou à réessayer doivent être placés dans une tâche durable au lieu de rester dans la fibre de requête. L'API et le worker sont des processus séparés :
 
-## Health Checks
-
-### Endpoints
-
-- `GET /health-check` — Vérification complète (base de données + auth). Retourne `503` si un check échoue.
-- `GET /health-check/live` — Sonde de vivacité. Retourne `200` si le processus tourne.
-- `GET /health-check/ready` — Sonde de disponibilité. Vérifie la base de données.
-
-### Configuration Kubernetes
-
-```yaml
-livenessProbe:
-  httpGet:
-    path: /health-check/live
-    port: 8080
-  initialDelaySeconds: 30
-  periodSeconds: 10
-
-readinessProbe:
-  httpGet:
-    path: /health-check/ready
-    port: 8080
-  initialDelaySeconds: 5
-  periodSeconds: 5
+```bash
+pnpm --filter @stocket/api start
+pnpm --filter @stocket/api start:worker
 ```
+
+Les tâches prennent les états `queued`, `running`, `succeeded`, `failed` et `canceled`, avec progression, tentatives, leases, heartbeats, retry différé, récupération et annulation coopérative. La lecture et l'annulation exigent une session et sont limitées au tenant et à l'utilisateur créateur :
+
+- `GET /api/v1/tasks`
+- `GET /api/v1/tasks/:id`
+- `POST /api/v1/tasks/:id/cancel`
+
+L'import produit est actuellement le seul type de tâche enregistré. `POST /api/v1/products/import` renvoie `202` avec la tâche et un header `Location: /api/v1/tasks/:id`. Son `Idempotency-Key` est limité au tenant, au créateur et au type de tâche.
+
+Pour ajouter un type de tâche, définissez et validez son payload, implémentez un `TaskHandler`, enregistrez-le dans le layer `TaskRegistry` du worker, ajoutez ses dépendances au layer applicatif du worker et exposez un service d'enqueue. Le processus HTTP peut créer les tâches ; seul le worker doit les exécuter.
+
+## Vérification rapide
+
+Pour les changements d'API backend, lancez d'abord les vérifications pertinentes les plus petites :
+
+```bash
+pnpm --filter @stocket/api type-check
+pnpm --filter @stocket/api lint
+pnpm --filter @stocket/api test -- clients
+```
+
+Utilisez le nom du module concerné comme filtre Vitest. Lancez les tests d'intégration lorsque la persistance, les transactions, le tenant ou la composition des routes changent.

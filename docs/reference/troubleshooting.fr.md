@@ -1,243 +1,138 @@
 # Dépannage
 
-Solutions aux problèmes courants lors du travail avec Stocket Inventory.
+Commencez par le processus qui possède la frontière défaillante. Le contrôleur d'espace coordonne les dépôts, mais backend, worker, frontend, PostgreSQL et MinIO conservent leurs propres logs et états de santé.
 
-## Environnement de développement
+## Bootstrap n'installe pas `@stocketfr/*`
 
-### Le shell Nix ne démarre pas
+Les paquets partagés sont hébergés dans GitHub Packages.
 
-**Symptôme :** `nix develop` échoue ou se bloque
+1. Créez ou renouvelez un token GitHub avec `read:packages`.
+2. Configurez le registre `@stocketfr` et le token dans la configuration npm utilisateur.
+3. Relancez `pnpm install` dans le dépôt concerné ou `./meta/scripts/bootstrap`.
 
-**Solutions :**
+Ne placez pas le token dans un `.npmrc` du dépôt.
 
-1. Vérifier l'installation de Nix :
-   ```bash
-   nix --version
-   ```
+## Mauvaise version de Node ou du gestionnaire
 
-2. S'assurer que les flakes sont activés dans votre configuration Nix (`~/.config/nix/nix.conf`) :
-   ```
-   experimental-features = nix-command flakes
-   ```
-
-3. Essayer d'entrer dans le shell depuis le répertoire du dépôt spécifique :
-   ```bash
-   cd backend && nix develop
-   ```
-
-### Les services Docker ne démarrent pas
-
-**Symptôme :** `docker compose -f meta/docker-compose.yml up -d` échoue
-
-**Solutions :**
-
-1. Vérifier que Docker est en cours d'exécution :
-   ```bash
-   docker info
-   ```
-
-2. Vérifier les conflits de ports :
-   ```bash
-   lsof -i :5432
-   ```
-
-3. Réinitialiser les conteneurs Docker :
-   ```bash
-   docker compose -f meta/docker-compose.yml down -v
-   docker compose -f meta/docker-compose.yml up -d
-   ```
-
-### Port déjà utilisé
-
-**Symptôme :** Erreur "Address already in use"
-
-**Solutions :**
+Le backend et le frontend ciblent Node.js 22 et pnpm 10.28. Les autres dépôts
+conservent leurs propres versions ; certains workflows des paquets et du desktop
+utilisent encore Node.js 20. Vérifiez le dépôt propriétaire avant de les modifier :
 
 ```bash
-# Trouver le processus utilisant le port
-lsof -i :8080  # ou :3000, :5432
-
-# Tuer le processus
-kill -9 <PID>
+node --version
+pnpm --version
 ```
 
-### Les dépendances ne s'installent pas
+Entrez dans le shell Nix du dépôt ou activez Corepack si nécessaire. Bun n'est pas le runtime backend.
 
-**Symptôme :** `pnpm install` échoue
+## PostgreSQL ou MinIO ne démarre pas
 
-**Solutions :**
-
-1. Vider le cache pnpm :
-   ```bash
-   pnpm store prune
-   rm -rf node_modules
-   pnpm install
-   ```
-
-2. Vérifier la version de Node.js :
-   ```bash
-   node --version  # Doit être 20+
-   ```
-
-## Problèmes de base de données
-
-### Impossible de se connecter à PostgreSQL
-
-**Symptôme :** Erreurs de connexion refusée
-
-**Solutions :**
-
-1. Vérifier si PostgreSQL est en cours d'exécution :
-   ```bash
-   pg_isready -h localhost -p 5432
-   ```
-
-2. Démarrer PostgreSQL via Docker Compose :
-   ```bash
-   docker compose -f meta/docker-compose.yml up -d
-   ```
-
-3. Vérifier les variables d'environnement dans `backend/.env`
-
-### Erreurs de migration ou de schéma
-
-**Symptôme :** Erreurs Drizzle ORM concernant des tables ou colonnes manquantes
-
-**Solutions :**
-
-1. Redémarrer le serveur API — les changements de schéma sont appliqués automatiquement en développement :
-   ```bash
-   cd backend && pnpm start
-   ```
-
-2. Vérifier que la base de données existe :
-   ```bash
-   psql -h localhost -U postgres -c '\l'
-   ```
-
-3. Vérifier les définitions de schéma dans `backend/src/effect/platform/db/schema.ts`
-
-## Problèmes API
-
-### Erreurs d'authentification Better Auth
-
-**Symptôme :** Erreurs 401 Unauthorized
-
-**Solutions :**
-
-1. Vérifier que `BETTER_AUTH_SECRET` est défini dans `backend/.env` (doit être 32+ octets aléatoires)
-2. Vérifier que `BETTER_AUTH_URL` est correctement défini (ex : `http://localhost:8080`)
-3. Vérifier que le token est envoyé :
-   ```bash
-   # La requête doit inclure :
-   # Authorization: Bearer <token>
-   ```
-4. Essayer de régénérer le secret :
-   ```bash
-   openssl rand -base64 32
-   ```
-   Mettre à jour `BETTER_AUTH_SECRET` dans `backend/.env` et redémarrer le serveur.
-
-### Échec du build des types partagés
-
-**Symptôme :** Le build de `@stocket/types` échoue
-
-**Solutions :**
-
-1. Build l'API d'abord :
-   ```bash
-   pnpm --filter @stocket/api build
-   ```
-
-2. Vérifier les erreurs TypeScript :
-   ```bash
-   pnpm --filter @stocket/api type-check
-   ```
-
-## Problèmes Frontend
-
-### Erreurs de types du client API
-
-**Symptôme :** Erreurs TypeScript dans les hooks écrits à la main ou les types partagés
-
-**Solutions :**
-
-1. Rebuild des types partagés après les changements API :
-   ```bash
-   pnpm --filter @stocket/types barrels
-   pnpm --filter @stocket/types build
-   ```
-
-### Erreurs d'hydratation
-
-**Symptôme :** Avertissements de mismatch d'hydratation React
-
-**Solutions :**
-
-1. S'assurer que le rendu client/serveur correspond
-2. Éviter le code navigateur au niveau module côté SSR
-3. Reporter les APIs navigateur dans des effets ou guards
-
-### Les traductions ne fonctionnent pas
-
-**Symptôme :** Clés de traduction affichées au lieu du texte
-
-**Solutions :**
-
-1. Vérifier que les fichiers de locale existent dans `frontend/src/locales/`
-2. Vérifier la configuration i18n
-3. Vérifier le préfixe de langue dans l'URL
-
-## Problèmes de build
-
-### Erreurs TypeScript
-
-**Symptôme :** Le build échoue avec des erreurs de type
-
-**Solutions :**
+`./meta/scripts/dev` tente de démarrer les deux services lorsque Docker est disponible.
 
 ```bash
-# Vérifier un module spécifique
-pnpm --filter @stocket/api type-check
-pnpm --filter @stocket/web type-check
+docker compose -f meta/docker-compose.yml ps
+docker compose -f meta/docker-compose.yml logs postgres minio minio-init
 ```
 
-### Erreurs ESLint
+Vérifiez les ports 5432, 9000 et 9001, puis que l'initialisation du bucket est terminée avant de diagnostiquer les photos/imports.
 
-**Symptôme :** La commande lint échoue
+!!! danger
+    `docker compose down -v` supprime les volumes PostgreSQL et les objets locaux. Ne l'utilisez pas comme simple redémarrage.
 
-**Solutions :**
+## L'API ou le worker échoue pendant l'initialisation du stockage
+
+Le layer de stockage global vérifie le bucket au démarrage : un stockage invalide
+ou inaccessible empêche normalement l'API et le worker de démarrer. Toutes les
+valeurs `S3_*` doivent être présentes, l'endpoint doit être une URL valide et le
+bucket doit déjà exister. MinIO local exige normalement
+`S3_FORCE_PATH_STYLE=true`. Comparez Infisical à `backend/env.template` ;
+modifier un `.env` local ne change pas `pnpm start` sans modification volontaire
+du lanceur.
+
+## Loggle signale un script frontend absent
+
+Le `meta/.loggle.toml` actuel invoque `@stocket/web dev:workspace`, mais ce
+script n'existe pas dans le dépôt frontend. Lorsque Loggle est installé,
+démarrez PostgreSQL et MinIO via `meta/docker-compose.yml`, puis
+`pnpm start:workspace` dans `backend` et `pnpm dev` dans `frontend`. Le lanceur
+direct de meta utilise déjà le bon script, mais `./meta/scripts/dev` choisit
+automatiquement Loggle lorsqu'il est installé et qu'aucun processus optionnel
+n'est demandé.
+
+## Une route tenant redirige ou renvoie « tenant introuvable »
+
+- Utilisez `http://localhost:3000` pour la console plateforme.
+- Utilisez `http://<slug>.localhost:3000` pour un tenant.
+- Vérifiez le slug dans la console plateforme. Créez-y un tenant manquant ; le seed cible des tenants existants et ne crée que le tenant par défaut lorsque la base n'en contient aucun.
+- Vérifiez que l'utilisateur connecté est membre du tenant. L'inscription publique ne provisionne pas actuellement cette appartenance.
+- Alignez `TENANT_BASE_DOMAIN` et `PLATFORM_HOST` entre frontend et backend.
+
+## Les cookies de connexion échouent via SSR ou proxy
+
+Le navigateur appelle `/api/auth` et `/api/v1` sur la même origine ; le SSR transmet cookie, hôte et protocole à `INTERNAL_API_ORIGIN`.
+
+- Vérifiez que `INTERNAL_API_ORIGIN` atteint le backend depuis le frontend.
+- Définissez `TRUSTED_PROXY=1` uniquement derrière un proxy de confiance qui fournit les en-têtes forwarded.
+- Vérifiez ensemble `BETTER_AUTH_URL`, `FRONTEND_URL`, CORS et le domaine de cookie éventuel.
+- N'ajoutez pas `VITE_API_BASE_URL`, inutilisé dans l'architecture actuelle.
+
+## Smart Import reste en attente
+
+L'API ne fait qu'enregistrer la tâche durable dans PostgreSQL. Lancez le worker séparé :
 
 ```bash
-# Auto-corriger ce qui est possible
-pnpm --filter @stocket/api lint --fix
-pnpm --filter @stocket/web lint:fix
+cd backend
+pnpm start:worker
 ```
 
-## Problèmes CI/CD
+Inspectez ensuite les logs API et worker, `BACKGROUND_TASK_*`, PostgreSQL et S3/MinIO. L'absence de `OPENAI_API_KEY` n'est pas une erreur : l'import utilise alors des propositions déterministes.
 
-### GitHub Actions échoue
+## Inventaire et mouvements divergent
 
-**Symptôme :** Les vérifications CI échouent
+Les lignes d'inventaire et le registre des mouvements sont actuellement indépendants. Un mouvement ne modifie pas l'inventaire et un ajustement d'inventaire ne crée pas de mouvement. Corrigez la ligne d'inventaire et ajoutez séparément l'écriture de registre nécessaire.
 
-**Solutions :**
+## Une zone enfant disparaît après suppression du parent
 
-1. Exécuter les vérifications localement d'abord :
-   ```bash
-   pnpm lint && pnpm test && pnpm build
-   ```
+Ne supprimez pas une zone parent tant qu'elle a des enfants. La relation actuelle ne propage pas la suppression et ne réaffecte pas les descendants ; ils peuvent devenir invisibles dans l'arbre. Réaffectez ou supprimez tous les enfants d'abord. L'inventaire lié perd son affectation de zone.
 
-2. Vérifier que les secrets sont configurés dans GitHub
+## La validation frontend échoue
 
-3. Vider le cache GitHub Actions si nécessaire
+Isolez la commande :
 
-## Obtenir plus d'aide
+```bash
+cd frontend
+pnpm type-check
+pnpm lint
+pnpm format:check
+pnpm test:unit
+```
 
-Si vous êtes toujours bloqué :
+L'application utilise Oxlint. L'existence du paquet publié `@stocketfr/eslint-config` ne signifie pas que les applications exécutent actuellement ESLint.
 
-1. Consultez les [issues existantes](https://github.com/stocketfr/documentation/issues)
-2. Recherchez les messages d'erreur en ligne
-3. Ouvrez une nouvelle issue avec :
-    - Message d'erreur
-    - Étapes pour reproduire
-    - Détails de l'environnement
+## Les vérifications backend échouent
+
+```bash
+cd backend
+pnpm type-check
+pnpm lint
+pnpm test
+pnpm test:integration
+```
+
+Les tests d'intégration exigent PostgreSQL et utilisent `TEST_DATABASE_URL` s'il est défini. Séparez d'abord les échecs unitaires et d'intégration.
+
+## La documentation API semble incomplète
+
+Swagger UI se trouve sur `http://localhost:8080/docs`, pas `/api/docs`, et ne
+documente actuellement que la santé. Les routeurs backend montés définissent les
+endpoints actifs ; leurs schémas `@stocketfr/types` correspondants définissent
+les payloads. Tout schéma exporté n'est pas forcément monté : fulfillment reste
+par exemple un prototype non monté.
+
+## Une page française retombe en anglais
+
+Le site utilise la localisation par suffixe (`page.fr.md`) avec repli anglais. Vérifiez le suffixe, le sélecteur de langue et la présence de la page dans la navigation `mkdocs.yml`.
+
+## Toujours bloqué
+
+Notez la commande, le dépôt et la révision, les versions Node/pnpm, les logs utiles et un résumé d'environnement expurgé. Ouvrez l'issue dans le dépôt propriétaire ; le dépôt documentation ne sert qu'aux défauts documentaires.
