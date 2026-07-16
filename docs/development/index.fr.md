@@ -14,6 +14,8 @@ Stocket Inventory est un workspace multi-repo contenant :
 ## Liens Rapides
 
 - [Architecture](architecture.md) - Conception du système et stack technique
+- [Architecture IA et MCP](mcp-api.md) - capacités IA typées, confirmation,
+  changements durables, annulation et frontières d'accès distant
 - [Configuration](setup.md) - Configuration de l'environnement de développement
 - [Style de Code](code-style.md) - ESLint, Prettier et conventions
 - [Tests](testing.md) - Patterns de tests Vitest

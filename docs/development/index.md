@@ -18,6 +18,8 @@ Stocket Inventory is a **pnpm monorepo** containing:
 ## Quick Links
 
 - [Architecture](architecture.md) — System design and tech stack
+- [AI and MCP Architecture](mcp-api.md) — typed AI capabilities, confirmation,
+  durable changes, undo, and remote-access boundaries
 - [Setup](setup.md) — Development environment configuration
 - [Code Style](code-style.md) — oxlint, Prettier, and conventions
 - [Testing](testing.md) — Vitest + Playwright patterns

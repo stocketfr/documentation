@@ -77,6 +77,7 @@ plugins:
             Audit Logs: Journaux d'audit
             Development: Développement
             Architecture: Architecture
+            AI & MCP Architecture: Architecture IA & MCP
             Setup: Configuration
             Code Style: Style de code
             Testing: Tests
@@ -158,6 +159,7 @@ nav:
   - Development:
       - development/index.md
       - Architecture: development/architecture.md
+      - AI & MCP Architecture: development/mcp-api.md
       - Setup: development/setup.md
       - Code Style: development/code-style.md
       - Testing: development/testing.md
